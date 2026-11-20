@@ -28,20 +28,10 @@ function saveOrders() {
     fs.writeFileSync(ordersFile, JSON.stringify(ordersDB, null, 2), 'utf8');
 }
 
-// Görsel kalibrasyon panelinden kaydedilen şablon ayarları
-const layoutsFile = path.join(__dirname, 'sablon_ayarlari.json');
-let customLayoutsDB = fs.existsSync(layoutsFile) ? JSON.parse(fs.readFileSync(layoutsFile, 'utf8')) : {};
-function saveLayouts() {
-    fs.writeFileSync(layoutsFile, JSON.stringify(customLayoutsDB, null, 2), 'utf8');
-}
-
-const DEFAULT_PHOTO_AREAS = {
-    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.372, r: 0.192 } },
-    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.212 } },
-    'prenses':      { horizontal: { x: 0.18, y: 0.360, r: 0.115 }, vertical: { x: 0.50, y: 0.480, r: 0.125 } },
-    'safari':       { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
-    'yaris':        { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
-    'hayvan-balon': { horizontal: { x: 0.84, y: 0.220, r: 0.110 }, vertical: { x: 0.50, y: 0.350, r: 0.120 } }
+// Standart Master Kalıp Koordinatları (100 Şablonun Tamamı İçin Sabit & Milimetrik)
+const MASTER_GEOMETRY = {
+    horizontal: { photoX: 0.50, photoY: 0.415, photoR: 0.145 },
+    vertical:   { photoX: 0.50, photoY: 0.375, photoR: 0.195 }
 };
 
 const LABEL_MAP = {
@@ -54,7 +44,7 @@ const LABEL_MAP = {
 
 app.get('/api/sablonlar', (req, res) => {
     const dir = path.join(__dirname, 'public', 'sablonlar');
-    if (!fs.existsSync(dir)) return res.json({ templates: [], customLayouts: customLayoutsDB });
+    if (!fs.existsSync(dir)) return res.json([]);
     const files = fs.readdirSync(dir);
     const map = {};
 
@@ -84,21 +74,7 @@ app.get('/api/sablonlar', (req, res) => {
         return a.label.localeCompare(b.label, 'tr');
     });
 
-    res.json({ templates: list, customLayouts: customLayoutsDB });
-});
-
-// Görsel kalibrasyon ayarını sunucuya kaydetme ucu
-app.post('/api/sablon-ayari-kaydet', (req, res) => {
-    try {
-        const { theme, orientation, config } = req.body;
-        if (!theme || !orientation || !config) return res.status(400).json({ status: 'error', message: 'Eksik veri' });
-        if (!customLayoutsDB[theme]) customLayoutsDB[theme] = {};
-        customLayoutsDB[theme][orientation] = config;
-        saveLayouts();
-        res.json({ status: 'ok' });
-    } catch (e) {
-        res.status(500).json({ status: 'error', message: e.message });
-    }
+    res.json(list);
 });
 
 function findTemplateFile(baseDir, theme, orientationKey) {
@@ -109,46 +85,9 @@ function findTemplateFile(baseDir, theme, orientationKey) {
     return null;
 }
 
-function drawCleanPhotoInFrame(ctx, bgImg, userPhoto, width, height, px, py, r, tf, theme, isHoriz) {
-    ctx.drawImage(bgImg, 0, 0, width, height);
-    if (!userPhoto) return;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(px, py, r * 0.945, 0, Math.PI * 2);
-    ctx.clip();
-
-    const imgRatio = userPhoto.width / userPhoto.height;
-    let baseW = r * 2, baseH = r * 2;
-    if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
-    const drawW = baseW * (tf.scale || 1);
-    const drawH = baseH * (tf.scale || 1);
-    const shiftX = (tf.offsetX || 0) * r;
-    const shiftY = (tf.offsetY || 0) * r;
-    ctx.drawImage(userPhoto, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
-    ctx.restore();
-
-    if (theme === 'mavi-prens' || !DEFAULT_PHOTO_AREAS[theme]) {
-        const ribbonTopY = isHoriz ? height * 0.542 : height * 0.495;
-        const ribbonH = isHoriz ? height * 0.14 : height * 0.13;
-        const ribbonW = isHoriz ? width * 0.36 : width * 0.48;
-        ctx.drawImage(
-            bgImg,
-            (bgImg.width / width) * (px - ribbonW / 2),
-            (bgImg.height / height) * ribbonTopY,
-            (bgImg.width / width) * ribbonW,
-            (bgImg.height / height) * ribbonH,
-            px - ribbonW / 2,
-            ribbonTopY,
-            ribbonW,
-            ribbonH
-        );
-    }
-}
-
 app.post('/api/siparis-olustur', async (req, res) => {
     try {
-        const { slogan, name, age, theme, orientation, size, price, customerName, customerPhone, customerEmail, customerAddress, photoBase64, photoTransform, textLayerBase64, isTestOrder } = req.body;
+        const { slogan, name, age, theme, orientation, size, price, customerName, customerPhone, customerEmail, customerAddress, photoBase64, photoTransform, overlayLayerBase64, isTestOrder } = req.body;
 
         const merchant_oid = 'AFIS' + Date.now();
         ordersDB[merchant_oid] = {
@@ -159,7 +98,7 @@ app.post('/api/siparis-olustur', async (req, res) => {
             customerName, customerPhone, customerEmail, customerAddress,
             photoBase64: photoBase64 || null,
             photoTransform: photoTransform || { scale: 1, offsetX: 0, offsetY: 0 },
-            textLayerBase64: textLayerBase64 || null,
+            overlayLayerBase64: overlayLayerBase64 || null,
             status: 'ODEME_BEKLIYOR',
             fileName: null
         };
@@ -256,7 +195,7 @@ app.get('/yonetim', (req, res) => {
 
     res.send(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Premium Afiş Yönetim Paneli</title>
     <style>body{font-family:sans-serif;padding:24px;background:#f8f9fa}table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08)}th,td{padding:14px;border-bottom:1px solid #eee;text-align:left;font-size:14px}th{background:#1E193B;color:#fff}</style>
-    </head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h2>Premium Afiş - Gelen Siparişler ve Baskı Merkezi</h2><a href="/?kalibre=1" style="background:#FFB300;color:#1E193B;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold;">Görsel Şablon Kalibratörünü Aç</a></div><table><tr><th>Sipariş No</th><th>Afiş Detayı</th><th>Müşteri & Kargo</th><th>Tutar / Durum</th><th>Baskı Dosyası</th></tr>${rows || '<tr><td colspan="5">Henüz sipariş yok.</td></tr>'}</table></body></html>`);
+    </head><body><h2>Premium Afiş - Gelen Siparişler ve Baskı Merkezi</h2><table><tr><th>Sipariş No</th><th>Afiş Detayı</th><th>Müşteri & Kargo</th><th>Tutar / Durum</th><th>Baskı Dosyası</th></tr>${rows || '<tr><td colspan="5">Henüz sipariş yok.</td></tr>'}</table></body></html>`);
 });
 
 async function generatePrintReadyFile(order) {
@@ -273,23 +212,38 @@ async function generatePrintReadyFile(order) {
         tplPath = findTemplateFile(path.join(__dirname, 'public', 'sablonlar'), order.theme, orientationKey);
     }
 
+    // 1. Katman: Temiz Zemin İllüstrasyonu
     const bgImg = await loadImage(tplPath);
-    const savedCfg = customLayoutsDB[order.theme]?.[order.orientation];
-    const baseArea = (DEFAULT_PHOTO_AREAS[order.theme] || DEFAULT_PHOTO_AREAS['default'])[order.orientation];
-    const pCfg = savedCfg ? { x: savedCfg.photoX, y: savedCfg.photoY, r: savedCfg.photoR } : baseArea;
+    ctx.drawImage(bgImg, 0, 0, width, height);
 
-    const r = width * pCfg.r;
-    const px = width * pCfg.x;
-    const py = height * pCfg.y;
+    // 2. Katman: Müşteri Fotoğrafı (Sabit Master Yuvarlağı İçinde)
+    const geo = MASTER_GEOMETRY[order.orientation];
+    const r = width * geo.photoR;
+    const px = width * geo.photoX;
+    const py = height * geo.photoY;
     const tf = order.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 };
 
-    const userPhoto = order.photoBase64 ? await loadImage(order.photoBase64) : null;
-    drawCleanPhotoInFrame(ctx, bgImg, userPhoto, width, height, px, py, r, tf, order.theme, isHoriz);
+    if (order.photoBase64) {
+        const userPhoto = await loadImage(order.photoBase64);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.clip();
+        const imgRatio = userPhoto.width / userPhoto.height;
+        let baseW = r * 2, baseH = r * 2;
+        if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
+        const drawW = baseW * (tf.scale || 1);
+        const drawH = baseH * (tf.scale || 1);
+        const shiftX = (tf.offsetX || 0) * r;
+        const shiftY = (tf.offsetY || 0) * r;
+        ctx.drawImage(userPhoto, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
+        ctx.restore();
+    }
 
-    // 3D Alt Kurdele + 3D altın/inci kabartmalı yazı katmanı
-    if (order.textLayerBase64) {
-        const textLayer = await loadImage(order.textLayerBase64);
-        ctx.drawImage(textLayer, 0, 0, width, height);
+    // 3. Katman: 3D Altın/Gümüş Çerçeve + Otomatik Kurdeleler + 3D Kabartmalı Yazılar
+    if (order.overlayLayerBase64) {
+        const overlayImg = await loadImage(order.overlayLayerBase64);
+        ctx.drawImage(overlayImg, 0, 0, width, height);
     }
 
     const safeName = (order.name || 'ISIMSIZ').toLocaleUpperCase('tr-TR').replace(/[^a-zA-Z0-9ĞÜŞİÖÇğüşıöç]/g, '_');
