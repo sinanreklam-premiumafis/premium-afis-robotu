@@ -624,11 +624,13 @@
             const charMid = currentX + widths[i] / 2;
             targetCtx.save();
             if (Math.abs(arcStrength) > 0.001) {
-                const angle = charMid / radius;
-                const x = cx + Math.sin(angle) * radius;
-                const y = cy + (radius - Math.cos(angle) * radius);
+                const absR = Math.abs(radius);
+                const sign = arcStrength > 0 ? 1 : -1;
+                const angle = charMid / absR;
+                const x = cx + Math.sin(angle) * absR;
+                const y = cy + sign * (absR - Math.cos(angle) * absR);
                 targetCtx.translate(x, y);
-                targetCtx.rotate(angle);
+                targetCtx.rotate(sign * angle);
             } else {
                 targetCtx.translate(cx + charMid, cy);
             }
