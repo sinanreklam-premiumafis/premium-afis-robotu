@@ -10,17 +10,29 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--navy); padding-bottom: 50px; }
         h1, h2, .brand { font-family: 'Fredoka', sans-serif; }
-        .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
-        header { text-align: center; margin-bottom: 24px; }
+        .wrap { max-width: 1140px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; margin-bottom: 20px; }
         .brand { font-size: 32px; font-weight: 700; }
         .brand span { color: var(--pink); }
         .sub { color: #7B2869; font-size: 14px; font-weight: 600; }
+
+        /* Görsel Kalibrasyon Çubuğu (?kalibre=1 ile açılır) */
+        .cal-bar { display: none; background: #FFF8E1; border: 2px solid #FFB300; border-radius: 16px; padding: 14px 18px; margin-bottom: 18px; box-shadow: 0 6px 20px rgba(255,179,0,0.18); }
+        .cal-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .cal-head strong { color: #E65100; font-size: 15px; }
+        .cal-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .cal-tab { padding: 6px 12px; border-radius: 20px; border: 1.5px solid #FF8F00; background: #fff; color: #E65100; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .cal-tab.active { background: #FF8F00; color: #fff; }
+        .cal-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: center; }
+        .cal-ctrl { background: #fff; padding: 8px 12px; border-radius: 10px; border: 1px solid #FFE082; font-size: 12px; font-weight: 700; }
+        .cal-ctrl input[type="range"] { width: 100%; accent-color: #FF6F00; margin-top: 4px; }
+        .btn-save-cal { background: #2E7D32; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
 
         .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; background: #fff; padding: 24px; border-radius: 24px; box-shadow: 0 10px 30px rgba(230,0,126,0.08); }
         @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
 
         .preview-area { background: #FDF2F6; border: 2px dashed var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        canvas { max-width: 100%; max-height: 540px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; touch-action: none; }
+        canvas { max-width: 100%; max-height: 550px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; touch-action: none; }
         canvas.draggable { cursor: grab; }
         canvas.dragging { cursor: grabbing; }
 
@@ -70,6 +82,30 @@
         <div class="brand">Premium<span>Afiş</span></div>
         <div class="sub">Kişiye Özel Doğum Günü Afişleri • Anında Tasarla & Sipariş Ver</div>
     </header>
+
+    <!-- Görsel Sürükle-Bırak Kalibrasyon Paneli (?kalibre=1) -->
+    <div class="cal-bar" id="calBar">
+        <div class="cal-head">
+            <strong>Görsel Şablon Kalibratörü (Afiş üzerindeki öğeyi fareyle sürükleyip yerine oturtun)</strong>
+            <button type="button" class="btn-save-cal" onclick="saveCalibrationToServer()">Bu Şablonun Ayarını Sunucuya Kaydet</button>
+        </div>
+        <div class="cal-tabs" id="calTabs">
+            <button type="button" class="cal-tab active" data-target="slogan">1. Üst Slogan</button>
+            <button type="button" class="cal-tab" data-target="name">2. Çocuk İsmi</button>
+            <button type="button" class="cal-tab" data-target="age">3. Yaş Rakamı</button>
+            <button type="button" class="cal-tab" data-target="ageSub">4. YAŞ Yazısı & Kurdele</button>
+            <button type="button" class="cal-tab" data-target="photo">5. Fotoğraf Yuvarlağı</button>
+        </div>
+        <div class="cal-controls">
+            <div class="cal-ctrl">Boyut / Çap: <span id="lblCalSize"></span><input type="range" id="rngCalSize" min="0.02" max="0.35" step="0.002"></div>
+            <div class="cal-ctrl">Kurdele Kavisi: <span id="lblCalArc"></span><input type="range" id="rngCalArc" min="-0.35" max="0.35" step="0.01"></div>
+            <div class="cal-ctrl">Yatay Konum (X): <span id="lblCalX"></span><input type="range" id="rngCalX" min="0.10" max="0.90" step="0.002"></div>
+            <div class="cal-ctrl">Dikey Konum (Y): <span id="lblCalY"></span><input type="range" id="rngCalY" min="0.05" max="0.95" step="0.002"></div>
+            <div class="cal-ctrl" style="display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="chkShowRibbon" style="width:auto;"> YAŞ Altına Mavi Kurdele Çiz
+            </div>
+        </div>
+    </div>
 
     <div class="grid">
         <div class="preview-area">
@@ -172,19 +208,23 @@
     const DEFAULT_LAYOUT = {
         defaultName: 'YUSUF MAHİR',
         horizontal: {
-            sloganY: 0.118, sloganArc: 0.20, sloganMaxW: 0.36, sloganMaxH: 0.048,
-            nameY: 0.625, nameArc: 0.14, nameMaxW: 0.32, nameMaxH: 0.055,
-            ageY: 0.775, ageSize: 0.125, ageSub: 'YAŞ', ageSubY: 0.892, ageSubSize: 0.038,
-            photoX: 0.50, photoY: 0.415, photoR: 0.165,
+            sloganX: 0.50, sloganY: 0.118, sloganArc: -0.20, sloganMaxW: 0.36, sloganMaxH: 0.048,
+            nameX: 0.50, nameY: 0.605, nameArc: -0.13, nameMaxW: 0.30, nameMaxH: 0.052,
+            ageX: 0.50, ageY: 0.768, ageSize: 0.125,
+            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.878, ageSubSize: 0.035, ageSubArc: -0.08,
+            drawSubRibbon: false,
+            photoX: 0.50, photoY: 0.415, photoR: 0.145,
             sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
             nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
             ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
         },
         vertical: {
-            sloganY: 0.112, sloganArc: 0.22, sloganMaxW: 0.52, sloganMaxH: 0.058,
-            nameY: 0.548, nameArc: 0.14, nameMaxW: 0.44, nameMaxH: 0.068,
-            ageY: 0.725, ageSize: 0.195, ageSub: 'YAŞ', ageSubY: 0.858, ageSubSize: 0.056,
-            photoX: 0.50, photoY: 0.365, photoR: 0.228,
+            sloganX: 0.50, sloganY: 0.128, sloganArc: -0.20, sloganMaxW: 0.50, sloganMaxH: 0.054,
+            nameX: 0.50, nameY: 0.545, nameArc: -0.12, nameMaxW: 0.42, nameMaxH: 0.062,
+            ageX: 0.50, ageY: 0.715, ageSize: 0.165,
+            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.838, ageSubSize: 0.048, ageSubArc: -0.06,
+            drawSubRibbon: true,
+            photoX: 0.50, photoY: 0.365, photoR: 0.212,
             sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
             nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
             ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
@@ -192,22 +232,22 @@
     };
 
     const LAYOUTS = {
-        'mavi-prens': DEFAULT_LAYOUT,
+        'mavi-prens': JSON.parse(JSON.stringify(DEFAULT_LAYOUT)),
         'prenses': {
             defaultName: 'ELİF SUDE',
             horizontal: {
-                sloganY: 0.28, sloganArc: 0.12, sloganMaxW: 0.42, sloganMaxH: 0.045,
-                nameY: 0.42, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.088,
-                ageY: 0.61, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubY: 0.72, ageSubSize: 0.045,
+                sloganX: 0.50, sloganY: 0.28, sloganArc: 0.12, sloganMaxW: 0.42, sloganMaxH: 0.045,
+                nameX: 0.50, nameY: 0.42, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.088,
+                ageX: 0.50, ageY: 0.61, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.72, ageSubSize: 0.045, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.18, photoY: 0.36, photoR: 0.115,
                 sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
                 ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#AD1457', block: '#4A148C' }
             },
             vertical: {
-                sloganY: 0.24, sloganArc: 0.12, sloganMaxW: 0.52, sloganMaxH: 0.048,
-                nameY: 0.37, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.10,
-                ageY: 0.62, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubY: 0.75, ageSubSize: 0.052,
+                sloganX: 0.50, sloganY: 0.24, sloganArc: 0.12, sloganMaxW: 0.52, sloganMaxH: 0.048,
+                nameX: 0.50, nameY: 0.37, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.10,
+                ageX: 0.50, ageY: 0.62, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.75, ageSubSize: 0.052, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.50, photoY: 0.48, photoR: 0.125,
                 sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
@@ -217,18 +257,18 @@
         'safari': {
             defaultName: 'ALPARSLAN',
             horizontal: {
-                sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.42, sloganMaxH: 0.042,
-                nameY: 0.21, nameArc: 0.08, nameMaxW: 0.48, nameMaxH: 0.072,
-                ageY: 0.71, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubY: 0.85, ageSubSize: 0.045,
+                sloganX: 0.50, sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.42, sloganMaxH: 0.042,
+                nameX: 0.50, nameY: 0.21, nameArc: 0.08, nameMaxW: 0.48, nameMaxH: 0.072,
+                ageX: 0.50, ageY: 0.71, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.85, ageSubSize: 0.045, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.50, photoY: 0.48, photoR: 0.165,
                 sloganStyle: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
                 ageStyle:    { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#2E7D32', block: '#1B5E20' }
             },
             vertical: {
-                sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.50, sloganMaxH: 0.045,
-                nameY: 0.21, nameArc: 0.08, nameMaxW: 0.56, nameMaxH: 0.082,
-                ageY: 0.72, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubY: 0.85, ageSubSize: 0.05,
+                sloganX: 0.50, sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.50, sloganMaxH: 0.045,
+                nameX: 0.50, nameY: 0.21, nameArc: 0.08, nameMaxW: 0.56, nameMaxH: 0.082,
+                ageX: 0.50, ageY: 0.72, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.85, ageSubSize: 0.05, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.50, photoY: 0.46, photoR: 0.215,
                 sloganStyle: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
@@ -238,18 +278,18 @@
         'yaris': {
             defaultName: 'KEREM ALİ',
             horizontal: {
-                sloganY: 0.075, sloganArc: 0.06, sloganMaxW: 0.42, sloganMaxH: 0.038,
-                nameY: 0.195, nameArc: 0.04, nameMaxW: 0.48, nameMaxH: 0.075,
-                ageY: 0.76, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubY: 0.88, ageSubSize: 0.045,
+                sloganX: 0.50, sloganY: 0.075, sloganArc: 0.06, sloganMaxW: 0.42, sloganMaxH: 0.038,
+                nameX: 0.50, nameY: 0.195, nameArc: 0.04, nameMaxW: 0.48, nameMaxH: 0.075,
+                ageX: 0.50, ageY: 0.76, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.88, ageSubSize: 0.045, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.50, photoY: 0.48, photoR: 0.165,
                 sloganStyle: { top: '#FFFFFF', mid: '#E0E0E0', bot: '#9E9E9E', rim: '#FFD54F', block: '#B71C1C' },
                 nameStyle:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#8E0000' },
                 ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#D50000', block: '#212121' }
             },
             vertical: {
-                sloganY: 0.08, sloganArc: 0.06, sloganMaxW: 0.50, sloganMaxH: 0.042,
-                nameY: 0.185, nameArc: 0.04, nameMaxW: 0.56, nameMaxH: 0.085,
-                ageY: 0.74, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubY: 0.86, ageSubSize: 0.05,
+                sloganX: 0.50, sloganY: 0.08, sloganArc: 0.06, sloganMaxW: 0.50, sloganMaxH: 0.042,
+                nameX: 0.50, nameY: 0.185, nameArc: 0.04, nameMaxW: 0.56, nameMaxH: 0.085,
+                ageX: 0.50, ageY: 0.74, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.86, ageSubSize: 0.05, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.50, photoY: 0.46, photoR: 0.215,
                 sloganStyle: { top: '#FFFFFF', mid: '#E0E0E0', bot: '#9E9E9E', rim: '#FFD54F', block: '#B71C1C' },
                 nameStyle:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#8E0000' },
@@ -259,18 +299,18 @@
         'hayvan-balon': {
             defaultName: 'ZEYNEP',
             horizontal: {
-                sloganY: 0.115, sloganArc: 0.06, sloganMaxW: 0.44, sloganMaxH: 0.042,
-                nameY: 0.25, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.092,
-                ageY: 0.68, ageSize: 0.14, ageSub: 'YAŞINDA', ageSubY: 0.81, ageSubSize: 0.046,
+                sloganX: 0.50, sloganY: 0.115, sloganArc: 0.06, sloganMaxW: 0.44, sloganMaxH: 0.042,
+                nameX: 0.50, nameY: 0.25, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.092,
+                ageX: 0.50, ageY: 0.68, ageSize: 0.14, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.81, ageSubSize: 0.046, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.84, photoY: 0.22, photoR: 0.110,
                 sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
                 ageStyle:    { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#6D4C41', block: '#3E2723' }
             },
             vertical: {
-                sloganY: 0.10, sloganArc: 0.06, sloganMaxW: 0.52, sloganMaxH: 0.046,
-                nameY: 0.22, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.105,
-                ageY: 0.69, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubY: 0.82, ageSubSize: 0.052,
+                sloganX: 0.50, sloganY: 0.10, sloganArc: 0.06, sloganMaxW: 0.52, sloganMaxH: 0.046,
+                nameX: 0.50, nameY: 0.22, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.105,
+                ageX: 0.50, ageY: 0.69, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.82, ageSubSize: 0.052, ageSubArc: 0, drawSubRibbon: false,
                 photoX: 0.50, photoY: 0.35, photoR: 0.120,
                 sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
@@ -281,8 +321,14 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const initialTheme = urlParams.get('tema') || 'mavi-prens';
+    const isCalMode = urlParams.get('kalibre') === '1';
+
+    if (isCalMode) {
+        document.getElementById('calBar').style.display = 'block';
+    }
 
     let templateFiles = {};
+    let calTarget = 'slogan';
     let state = {
         theme: initialTheme,
         orientation: 'horizontal',
@@ -300,8 +346,80 @@
     const bgImg = new Image();
 
     function getCfg() {
-        const themeObj = LAYOUTS[state.theme] || DEFAULT_LAYOUT;
-        return themeObj[state.orientation] || DEFAULT_LAYOUT[state.orientation];
+        if (!LAYOUTS[state.theme]) {
+            LAYOUTS[state.theme] = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+        }
+        return LAYOUTS[state.theme][state.orientation];
+    }
+
+    function syncCalUI() {
+        if (!isCalMode) return;
+        const cfg = getCfg();
+        const chk = document.getElementById('chkShowRibbon');
+        chk.checked = !!cfg.drawSubRibbon;
+
+        let sizeVal = 0.05, arcVal = 0, xVal = 0.5, yVal = 0.5;
+        if (calTarget === 'slogan') { sizeVal = cfg.sloganMaxH; arcVal = cfg.sloganArc; xVal = cfg.sloganX ?? 0.5; yVal = cfg.sloganY; }
+        else if (calTarget === 'name') { sizeVal = cfg.nameMaxH; arcVal = cfg.nameArc; xVal = cfg.nameX ?? 0.5; yVal = cfg.nameY; }
+        else if (calTarget === 'age') { sizeVal = cfg.ageSize; arcVal = 0; xVal = cfg.ageX ?? 0.5; yVal = cfg.ageY; }
+        else if (calTarget === 'ageSub') { sizeVal = cfg.ageSubSize; arcVal = cfg.ageSubArc || 0; xVal = cfg.ageSubX ?? 0.5; yVal = cfg.ageSubY; }
+        else if (calTarget === 'photo') { sizeVal = cfg.photoR; arcVal = 0; xVal = cfg.photoX; yVal = cfg.photoY; }
+
+        document.getElementById('rngCalSize').value = sizeVal;
+        document.getElementById('rngCalArc').value = arcVal;
+        document.getElementById('rngCalX').value = xVal;
+        document.getElementById('rngCalY').value = yVal;
+        document.getElementById('lblCalSize').textContent = sizeVal.toFixed(3);
+        document.getElementById('lblCalArc').textContent = arcVal.toFixed(2);
+        document.getElementById('lblCalX').textContent = xVal.toFixed(3);
+        document.getElementById('lblCalY').textContent = yVal.toFixed(3);
+    }
+
+    document.querySelectorAll('.cal-tab').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelector('.cal-tab.active').classList.remove('active');
+            btn.classList.add('active');
+            calTarget = btn.dataset.target;
+            syncCalUI();
+        };
+    });
+
+    ['rngCalSize', 'rngCalArc', 'rngCalX', 'rngCalY'].forEach(id => {
+        document.getElementById(id).oninput = () => {
+            const cfg = getCfg();
+            const s = parseFloat(document.getElementById('rngCalSize').value);
+            const a = parseFloat(document.getElementById('rngCalArc').value);
+            const x = parseFloat(document.getElementById('rngCalX').value);
+            const y = parseFloat(document.getElementById('rngCalY').value);
+
+            if (calTarget === 'slogan') { cfg.sloganMaxH = s; cfg.sloganArc = a; cfg.sloganX = x; cfg.sloganY = y; }
+            else if (calTarget === 'name') { cfg.nameMaxH = s; cfg.nameArc = a; cfg.nameX = x; cfg.nameY = y; }
+            else if (calTarget === 'age') { cfg.ageSize = s; cfg.ageX = x; cfg.ageY = y; }
+            else if (calTarget === 'ageSub') { cfg.ageSubSize = s; cfg.ageSubArc = a; cfg.ageSubX = x; cfg.ageSubY = y; }
+            else if (calTarget === 'photo') { cfg.photoR = s; cfg.photoX = x; cfg.photoY = y; }
+
+            syncCalUI();
+            draw();
+        };
+    });
+
+    document.getElementById('chkShowRibbon').onchange = (e) => {
+        getCfg().drawSubRibbon = e.target.checked;
+        draw();
+    };
+
+    async function saveCalibrationToServer() {
+        try {
+            const res = await fetch('/api/sablon-ayari-kaydet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: state.theme, orientation: state.orientation, config: getCfg() })
+            });
+            const d = await res.json();
+            if (d.status === 'ok') alert('Başarılı! Bu şablonun konumu ve kavisi kalıcı olarak kaydedildi.');
+        } catch (e) {
+            alert('Kayıt hatası: ' + e.message);
+        }
     }
 
     function setSlogan(txt) {
@@ -341,15 +459,30 @@
     }
 
     canvas.addEventListener('mousedown', (e) => {
-        if (!state.photoImg) return;
+        if (!isCalMode && !state.photoImg) return;
         isDragging = true;
         canvas.classList.add('dragging');
         dragStart = getCanvasCoords(e.clientX, e.clientY);
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isDragging || !state.photoImg) return;
+        if (!isDragging) return;
         const pos = getCanvasCoords(e.clientX, e.clientY);
+        if (isCalMode) {
+            const cfg = getCfg();
+            const dx = (pos.x - dragStart.x) / canvas.width;
+            const dy = (pos.y - dragStart.y) / canvas.height;
+            if (calTarget === 'slogan') { cfg.sloganX = (cfg.sloganX ?? 0.5) + dx; cfg.sloganY += dy; }
+            else if (calTarget === 'name') { cfg.nameX = (cfg.nameX ?? 0.5) + dx; cfg.nameY += dy; }
+            else if (calTarget === 'age') { cfg.ageX = (cfg.ageX ?? 0.5) + dx; cfg.ageY += dy; }
+            else if (calTarget === 'ageSub') { cfg.ageSubX = (cfg.ageSubX ?? 0.5) + dx; cfg.ageSubY += dy; }
+            else if (calTarget === 'photo') { cfg.photoX += dx; cfg.photoY += dy; }
+            dragStart = pos;
+            syncCalUI();
+            draw();
+            return;
+        }
+        if (!state.photoImg) return;
         const r = canvas.width * getCfg().photoR;
         state.photoTransform.offsetX += (pos.x - dragStart.x) / r;
         state.photoTransform.offsetY += (pos.y - dragStart.y) / r;
@@ -413,7 +546,7 @@
     function loadTemplate() {
         const dir = state.orientation === 'horizontal' ? 'yatay' : 'dikey';
         const customSrc = templateFiles[state.theme]?.[state.orientation];
-        bgImg.onload = draw;
+        bgImg.onload = () => { syncCalUI(); draw(); };
         bgImg.onerror = () => {
             if (!bgImg.src.endsWith('.png')) {
                 bgImg.src = `sablonlar/${state.theme}-${dir}.png`;
@@ -422,58 +555,57 @@
         bgImg.src = customSrc || `sablonlar/${state.theme}-${dir}.jpg`;
     }
 
-    function punchPreviewWindow(targetCtx, width, height, cx, cy, maxR) {
-        const x0 = Math.max(0, Math.floor(cx - maxR));
-        const y0 = Math.max(0, Math.floor(cy - maxR));
-        const w = Math.min(width - x0, Math.ceil(maxR * 2));
-        const h = Math.min(height - y0, Math.ceil(maxR * 2));
-        const imgData = targetCtx.getImageData(x0, y0, w, h);
-        const data = imgData.data;
+    // Dikey afişte YAŞ yazısının altına orijinaliyle uyumlu 3D altın çerçeveli mavi kurdele çizer
+    function draw3DSubRibbon(targetCtx, cx, cy, w, h) {
+        targetCtx.save();
+        targetCtx.shadowColor = 'rgba(0,0,0,0.45)';
+        targetCtx.shadowBlur = h * 0.25;
+        targetCtx.shadowOffsetY = h * 0.12;
 
-        const midX = Math.floor(cx - x0);
-        const midY = Math.floor(cy - y0);
-        const midIdx = (midY * w + midX) * 4;
-        const refR = data[midIdx], refG = data[midIdx + 1], refB = data[midIdx + 2];
+        // Sol ve sağ kuyruklar
+        const tailW = w * 0.22;
+        const tailH = h * 0.78;
+        const drawTail = (dir) => {
+            const sx = cx + dir * (w * 0.44);
+            const sy = cy + h * 0.08;
+            targetCtx.beginPath();
+            targetCtx.moveTo(sx, sy - tailH / 2);
+            targetCtx.lineTo(sx + dir * tailW, sy - tailH * 0.42);
+            targetCtx.lineTo(sx + dir * (tailW * 0.72), sy);
+            targetCtx.lineTo(sx + dir * tailW, sy + tailH * 0.42);
+            targetCtx.lineTo(sx, sy + tailH / 2);
+            targetCtx.closePath();
+            targetCtx.fillStyle = '#0D47A1';
+            targetCtx.fill();
+            targetCtx.lineWidth = Math.max(3, h * 0.045);
+            targetCtx.strokeStyle = '#FFC107';
+            targetCtx.stroke();
+        };
+        drawTail(-1);
+        drawTail(1);
 
-        const visited = new Uint8Array(w * h);
-        const queue = [midY * w + midX];
-        visited[midY * w + midX] = 1;
+        // Ana kavisli kurdele gövdesi
+        const arch = h * 0.18;
+        targetCtx.beginPath();
+        targetCtx.moveTo(cx - w / 2, cy - h / 2 + arch);
+        targetCtx.quadraticCurveTo(cx, cy - h / 2 - arch, cx + w / 2, cy - h / 2 + arch);
+        targetCtx.lineTo(cx + w / 2, cy + h / 2 + arch);
+        targetCtx.quadraticCurveTo(cx, cy + h / 2 - arch, cx - w / 2, cy + h / 2 + arch);
+        targetCtx.closePath();
 
-        let head = 0;
-        while (head < queue.length) {
-            const idx = queue[head++];
-            const px = idx % w;
-            const py = (idx - px) / w;
-            const dx = (px + x0) - cx;
-            const dy = (py + y0) - cy;
-            if (dx * dx + dy * dy > maxR * maxR) continue;
+        const grad = targetCtx.createLinearGradient(cx - w / 2, cy, cx + w / 2, cy);
+        grad.addColorStop(0.0, '#0A2E73');
+        grad.addColorStop(0.25, '#1976D2');
+        grad.addColorStop(0.50, '#2196F3');
+        grad.addColorStop(0.75, '#1976D2');
+        grad.addColorStop(1.0, '#0A2E73');
+        targetCtx.fillStyle = grad;
+        targetCtx.fill();
 
-            const p4 = idx * 4;
-            data[p4 + 3] = 0;
-
-            const neighbors = [
-                py > 0 ? idx - w : -1,
-                py < h - 1 ? idx + w : -1,
-                px > 0 ? idx - 1 : -1,
-                px < w - 1 ? idx + 1 : -1
-            ];
-
-            for (let n of neighbors) {
-                if (n !== -1 && !visited[n]) {
-                    visited[n] = 1;
-                    const n4 = n * 4;
-                    const r = data[n4], g = data[n4 + 1], b = data[n4 + 2];
-                    const brightness = (r + g + b) / 3;
-                    const diff = Math.abs(r - refR) + Math.abs(g - refG) + Math.abs(b - refB);
-                    if (brightness > 165 && diff < 140) {
-                        queue.push(n);
-                    } else {
-                        data[n4 + 3] = Math.min(data[n4 + 3], 110);
-                    }
-                }
-            }
-        }
-        targetCtx.putImageData(imgData, x0, y0);
+        targetCtx.lineWidth = Math.max(4, h * 0.06);
+        targetCtx.strokeStyle = '#FFD54F';
+        targetCtx.stroke();
+        targetCtx.restore();
     }
 
     function fitFontSize(targetCtx, text, maxFontPx, maxWidthPx) {
@@ -491,7 +623,7 @@
         for (let i = 0; i < chars.length; i++) {
             const charMid = currentX + widths[i] / 2;
             targetCtx.save();
-            if (arcStrength > 0) {
+            if (Math.abs(arcStrength) > 0.001) {
                 const angle = charMid / radius;
                 const x = cx + Math.sin(angle) * radius;
                 const y = cy + (radius - Math.cos(angle) * radius);
@@ -516,7 +648,7 @@
         const chars = text.split('');
         const widths = chars.map(c => targetCtx.measureText(c).width * 1.04);
         const totalWidth = widths.reduce((a, b) => a + b, 0);
-        const radius = arcStrength > 0 ? (totalWidth / (arcStrength * Math.PI)) : 999999;
+        const radius = Math.abs(arcStrength) > 0.001 ? (totalWidth / (arcStrength * Math.PI)) : 999999;
 
         renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY + fontSize * 0.22, radius, arcStrength, (ch) => {
             targetCtx.shadowColor = 'rgba(0,0,0,0.55)';
@@ -570,6 +702,31 @@
         return Math.floor(basePx * 0.62);
     }
 
+    function renderAllOverlays(targetCtx, W, H, cfg, slogan, name, age) {
+        const sX = W * (cfg.sloganX ?? 0.5);
+        const nX = W * (cfg.nameX ?? 0.5);
+        const aX = W * (cfg.ageX ?? 0.5);
+        const subX = W * (cfg.ageSubX ?? 0.5);
+
+        if (slogan) {
+            const sSize = fitFontSize(targetCtx, slogan, Math.floor(W * cfg.sloganMaxH), W * cfg.sloganMaxW);
+            drawEmbossed3D(targetCtx, slogan, sX, H * cfg.sloganY, sSize, cfg.sloganArc, cfg.sloganStyle);
+        }
+
+        if (name) {
+            const nSize = fitFontSize(targetCtx, name, Math.floor(W * cfg.nameMaxH), W * cfg.nameMaxW);
+            drawEmbossed3D(targetCtx, name, nX, H * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
+        }
+
+        if (cfg.drawSubRibbon) {
+            draw3DSubRibbon(targetCtx, subX, H * cfg.ageSubY, W * 0.25, H * 0.072);
+        }
+
+        const aSize = getAgeFontSize(Math.floor(W * cfg.ageSize), age);
+        drawEmbossed3D(targetCtx, age, aX, H * cfg.ageY, aSize, 0, cfg.ageStyle);
+        drawEmbossed3D(targetCtx, cfg.ageSub, subX, H * cfg.ageSubY, Math.floor(W * cfg.ageSubSize), cfg.ageSubArc || 0, cfg.nameStyle);
+    }
+
     function draw() {
         const isHoriz = state.orientation === 'horizontal';
         canvas.width = isHoriz ? 1200 : 900;
@@ -579,16 +736,17 @@
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
         const age = document.getElementById('inpAge').value.trim() || '1';
-        const cx = canvas.width / 2;
 
         const r = canvas.width * cfg.photoR;
         const px = canvas.width * cfg.photoX;
         const py = canvas.height * cfg.photoY;
 
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
         if (state.photoImg) {
             ctx.save();
             ctx.beginPath();
-            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.arc(px, py, r * 0.945, 0, Math.PI * 2);
             ctx.clip();
             const imgRatio = state.photoImg.width / state.photoImg.height;
             let baseW = r * 2, baseH = r * 2;
@@ -600,15 +758,23 @@
             ctx.drawImage(state.photoImg, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
             ctx.restore();
 
-            const tmpC = document.createElement('canvas');
-            tmpC.width = canvas.width;
-            tmpC.height = canvas.height;
-            const tmpCtx = tmpC.getContext('2d');
-            tmpCtx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-            punchPreviewWindow(tmpCtx, canvas.width, canvas.height, px, py, r);
-            ctx.drawImage(tmpC, 0, 0);
+            if (state.theme === 'mavi-prens' || !LAYOUTS[state.theme]) {
+                const ribbonTopY = isHoriz ? canvas.height * 0.542 : canvas.height * 0.495;
+                const ribbonH = isHoriz ? canvas.height * 0.14 : canvas.height * 0.13;
+                const ribbonW = isHoriz ? canvas.width * 0.36 : canvas.width * 0.48;
+                ctx.drawImage(
+                    bgImg,
+                    (bgImg.width / canvas.width) * (px - ribbonW / 2),
+                    (bgImg.height / canvas.height) * ribbonTopY,
+                    (bgImg.width / canvas.width) * ribbonW,
+                    (bgImg.height / canvas.height) * ribbonH,
+                    px - ribbonW / 2,
+                    ribbonTopY,
+                    ribbonW,
+                    ribbonH
+                );
+            }
         } else {
-            ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
             ctx.save();
             ctx.fillStyle = '#0A2463';
             ctx.font = `700 ${Math.floor(r * 0.13)}px 'Plus Jakarta Sans', sans-serif`;
@@ -618,32 +784,22 @@
             ctx.restore();
         }
 
-        if (slogan) {
-            const sSize = fitFontSize(ctx, slogan, Math.floor(canvas.width * cfg.sloganMaxH), canvas.width * cfg.sloganMaxW);
-            drawEmbossed3D(ctx, slogan, cx, canvas.height * cfg.sloganY, sSize, cfg.sloganArc, cfg.sloganStyle);
-        }
+        renderAllOverlays(ctx, canvas.width, canvas.height, cfg, slogan, name, age);
 
-        if (name) {
-            const nSize = fitFontSize(ctx, name, Math.floor(canvas.width * cfg.nameMaxH), canvas.width * cfg.nameMaxW);
-            drawEmbossed3D(ctx, name, cx, canvas.height * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
-        }
-
-        const aSize = getAgeFontSize(Math.floor(canvas.width * cfg.ageSize), age);
-        drawEmbossed3D(ctx, age, cx, canvas.height * cfg.ageY, aSize, 0, cfg.ageStyle);
-        drawEmbossed3D(ctx, cfg.ageSub, cx, canvas.height * cfg.ageSubY, Math.floor(canvas.width * cfg.ageSubSize), 0.08, cfg.nameStyle);
-
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(-28 * Math.PI / 180);
-        ctx.font = "bold 38px sans-serif";
-        ctx.fillStyle = "rgba(30, 25, 59, 0.13)";
-        ctx.textAlign = "center";
-        for (let y = -canvas.height; y < canvas.height; y += 160) {
-            for (let x = -canvas.width; x < canvas.width; x += 440) {
-                ctx.fillText("ÖNİZLEME • PREMİUM AFİŞ", x, y);
+        if (!isCalMode) {
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(-28 * Math.PI / 180);
+            ctx.font = "bold 38px sans-serif";
+            ctx.fillStyle = "rgba(30, 25, 59, 0.13)";
+            ctx.textAlign = "center";
+            for (let y = -canvas.height; y < canvas.height; y += 160) {
+                for (let x = -canvas.width; x < canvas.width; x += 440) {
+                    ctx.fillText("ÖNİZLEME • PREMİUM AFİŞ", x, y);
+                }
             }
+            ctx.restore();
         }
-        ctx.restore();
     }
 
     function bindThemeButtons() {
@@ -662,8 +818,16 @@
         });
     }
 
-    fetch('/api/sablonlar').then(r => r.json()).then(list => {
-        if (list && list.length > 0) {
+    fetch('/api/sablonlar').then(r => r.json()).then(resData => {
+        const list = resData.templates || [];
+        const savedLayouts = resData.customLayouts || {};
+        Object.keys(savedLayouts).forEach(tKey => {
+            if (!LAYOUTS[tKey]) LAYOUTS[tKey] = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+            if (savedLayouts[tKey].horizontal) Object.assign(LAYOUTS[tKey].horizontal, savedLayouts[tKey].horizontal);
+            if (savedLayouts[tKey].vertical) Object.assign(LAYOUTS[tKey].vertical, savedLayouts[tKey].vertical);
+        });
+
+        if (list.length > 0) {
             const container = document.getElementById('themes');
             container.innerHTML = '';
             list.forEach(item => {
@@ -729,21 +893,8 @@
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
         const age = document.getElementById('inpAge').value.trim() || '1';
-        const cx = hiCanvas.width / 2;
 
-        if (slogan) {
-            const sSize = fitFontSize(hCtx, slogan, Math.floor(hiCanvas.width * cfg.sloganMaxH), hiCanvas.width * cfg.sloganMaxW);
-            drawEmbossed3D(hCtx, slogan, cx, hiCanvas.height * cfg.sloganY, sSize, cfg.sloganArc, cfg.sloganStyle);
-        }
-        if (name) {
-            const nSize = fitFontSize(hCtx, name, Math.floor(hiCanvas.width * cfg.nameMaxH), hiCanvas.width * cfg.nameMaxW);
-            drawEmbossed3D(hCtx, name, cx, hiCanvas.height * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
-        }
-
-        const aSize = getAgeFontSize(Math.floor(hiCanvas.width * cfg.ageSize), age);
-        drawEmbossed3D(hCtx, age, cx, hiCanvas.height * cfg.ageY, aSize, 0, cfg.ageStyle);
-        drawEmbossed3D(hCtx, cfg.ageSub, cx, hiCanvas.height * cfg.ageSubY, Math.floor(hiCanvas.width * cfg.ageSubSize), 0.08, cfg.nameStyle);
-
+        renderAllOverlays(hCtx, hiCanvas.width, hiCanvas.height, cfg, slogan, name, age);
         return hiCanvas.toDataURL('image/png');
     }
 
