@@ -10,22 +10,11 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--navy); padding-bottom: 50px; }
         h1, h2, .brand { font-family: 'Fredoka', sans-serif; }
-        .wrap { max-width: 1140px; margin: 0 auto; padding: 20px; }
+        .wrap { max-width: 1120px; margin: 0 auto; padding: 20px; }
         header { text-align: center; margin-bottom: 20px; }
         .brand { font-size: 32px; font-weight: 700; }
         .brand span { color: var(--pink); }
         .sub { color: #7B2869; font-size: 14px; font-weight: 600; }
-
-        .cal-bar { display: none; background: #FFF8E1; border: 2px solid #FFB300; border-radius: 16px; padding: 14px 18px; margin-bottom: 18px; box-shadow: 0 6px 20px rgba(255,179,0,0.18); }
-        .cal-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-        .cal-head strong { color: #E65100; font-size: 15px; }
-        .cal-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-        .cal-tab { padding: 6px 12px; border-radius: 20px; border: 1.5px solid #FF8F00; background: #fff; color: #E65100; font-weight: 700; font-size: 12px; cursor: pointer; }
-        .cal-tab.active { background: #FF8F00; color: #fff; }
-        .cal-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: center; }
-        .cal-ctrl { background: #fff; padding: 8px 12px; border-radius: 10px; border: 1px solid #FFE082; font-size: 12px; font-weight: 700; }
-        .cal-ctrl input[type="range"] { width: 100%; accent-color: #FF6F00; margin-top: 4px; }
-        .btn-save-cal { background: #2E7D32; color: #fff; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
 
         .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; background: #fff; padding: 24px; border-radius: 24px; box-shadow: 0 10px 30px rgba(230,0,126,0.08); }
         @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
@@ -81,29 +70,6 @@
         <div class="brand">Premium<span>Afiş</span></div>
         <div class="sub">Kişiye Özel Doğum Günü Afişleri • Anında Tasarla & Sipariş Ver</div>
     </header>
-
-    <div class="cal-bar" id="calBar">
-        <div class="cal-head">
-            <strong>Görsel Şablon Kalibratörü (Afiş üzerindeki öğeyi fareyle sürükleyip yerine oturtun)</strong>
-            <button type="button" class="btn-save-cal" onclick="saveCalibrationToServer()">Bu Şablonun Ayarını Sunucuya Kaydet</button>
-        </div>
-        <div class="cal-tabs" id="calTabs">
-            <button type="button" class="cal-tab active" data-target="slogan">1. Üst Slogan</button>
-            <button type="button" class="cal-tab" data-target="name">2. Çocuk İsmi</button>
-            <button type="button" class="cal-tab" data-target="age">3. Yaş Rakamı</button>
-            <button type="button" class="cal-tab" data-target="ageSub">4. YAŞ Yazısı & Kurdele</button>
-            <button type="button" class="cal-tab" data-target="photo">5. Fotoğraf Yuvarlağı</button>
-        </div>
-        <div class="cal-controls">
-            <div class="cal-ctrl">Boyut / Çap: <span id="lblCalSize"></span><input type="range" id="rngCalSize" min="0.02" max="0.35" step="0.002"></div>
-            <div class="cal-ctrl">Kurdele Kavisi: <span id="lblCalArc"></span><input type="range" id="rngCalArc" min="-0.35" max="0.35" step="0.01"></div>
-            <div class="cal-ctrl">Yatay Konum (X): <span id="lblCalX"></span><input type="range" id="rngCalX" min="0.10" max="0.90" step="0.002"></div>
-            <div class="cal-ctrl">Dikey Konum (Y): <span id="lblCalY"></span><input type="range" id="rngCalY" min="0.05" max="0.95" step="0.002"></div>
-            <div class="cal-ctrl" style="display:flex;align-items:center;gap:6px;">
-                <input type="checkbox" id="chkShowRibbon" style="width:auto;"> YAŞ Altına Mavi Kurdele Çiz
-            </div>
-        </div>
-    </div>
 
     <div class="grid">
         <div class="preview-area">
@@ -205,130 +171,98 @@
         }
     })();
 
-    const DEFAULT_LAYOUT = {
-        defaultName: 'YUSUF MAHİR',
+    // STANDART MASTER KALIP GEOMETRİSİ (100 Şablonun Tamamı İçin Sabit ve Sıfır Kaymalı)
+    const MASTER_LAYOUT = {
         horizontal: {
-            sloganX: 0.50, sloganY: 0.122, sloganArc: 0.22, sloganMaxW: 0.36, sloganMaxH: 0.048,
-            nameX: 0.50, nameY: 0.625, nameArc: 0.14, nameMaxW: 0.30, nameMaxH: 0.052,
-            ageX: 0.50, ageY: 0.772, ageSize: 0.125,
-            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.885, ageSubSize: 0.035, ageSubArc: 0.08,
-            drawSubRibbon: false,
+            sloganY: 0.125, sloganArc: 0.22, sloganMaxW: 0.36, sloganMaxH: 0.046,
+            topRibbonW: 0.56, topRibbonH: 0.155,
             photoX: 0.50, photoY: 0.415, photoR: 0.145,
-            sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
-            nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
-            ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
+            nameY: 0.625, nameArc: 0.14, nameMaxW: 0.32, nameMaxH: 0.052,
+            midRibbonW: 0.46, midRibbonH: 0.135,
+            ageY: 0.772, ageSize: 0.125,
+            ageSubY: 0.885, ageSubSize: 0.035, ageSubArc: 0.08,
+            botRibbonW: 0.23, botRibbonH: 0.085
         },
         vertical: {
-            sloganX: 0.50, sloganY: 0.132, sloganArc: 0.22, sloganMaxW: 0.50, sloganMaxH: 0.054,
-            nameX: 0.50, nameY: 0.562, nameArc: 0.15, nameMaxW: 0.42, nameMaxH: 0.062,
-            ageX: 0.50, ageY: 0.715, ageSize: 0.165,
-            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.838, ageSubSize: 0.048, ageSubArc: 0.06,
-            drawSubRibbon: true,
-            photoX: 0.50, photoY: 0.372, photoR: 0.192,
-            sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
-            nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
-            ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
+            sloganY: 0.132, sloganArc: 0.22, sloganMaxW: 0.50, sloganMaxH: 0.052,
+            topRibbonW: 0.74, topRibbonH: 0.130,
+            photoX: 0.50, photoY: 0.375, photoR: 0.195,
+            nameY: 0.565, nameArc: 0.14, nameMaxW: 0.44, nameMaxH: 0.060,
+            midRibbonW: 0.62, midRibbonH: 0.115,
+            ageY: 0.718, ageSize: 0.165,
+            ageSubY: 0.842, ageSubSize: 0.048, ageSubArc: 0.06,
+            botRibbonW: 0.30, botRibbonH: 0.075
         }
     };
 
-    const LAYOUTS = {
-        'mavi-prens': JSON.parse(JSON.stringify(DEFAULT_LAYOUT)),
-        'prenses': {
-            defaultName: 'ELİF SUDE',
-            horizontal: {
-                sloganX: 0.50, sloganY: 0.28, sloganArc: 0.12, sloganMaxW: 0.42, sloganMaxH: 0.045,
-                nameX: 0.50, nameY: 0.42, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.088,
-                ageX: 0.50, ageY: 0.61, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.72, ageSubSize: 0.045, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.18, photoY: 0.36, photoR: 0.115,
-                sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#AD1457', block: '#4A148C' }
-            },
-            vertical: {
-                sloganX: 0.50, sloganY: 0.24, sloganArc: 0.12, sloganMaxW: 0.52, sloganMaxH: 0.048,
-                nameX: 0.50, nameY: 0.37, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.10,
-                ageX: 0.50, ageY: 0.62, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.75, ageSubSize: 0.052, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.50, photoY: 0.48, photoR: 0.125,
-                sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#AD1457', block: '#4A148C' }
-            }
-        },
-        'safari': {
-            defaultName: 'ALPARSLAN',
-            horizontal: {
-                sloganX: 0.50, sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.42, sloganMaxH: 0.042,
-                nameX: 0.50, nameY: 0.21, nameArc: 0.08, nameMaxW: 0.48, nameMaxH: 0.072,
-                ageX: 0.50, ageY: 0.71, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.85, ageSubSize: 0.045, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.50, photoY: 0.48, photoR: 0.165,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#2E7D32', block: '#1B5E20' }
-            },
-            vertical: {
-                sloganX: 0.50, sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.50, sloganMaxH: 0.045,
-                nameX: 0.50, nameY: 0.21, nameArc: 0.08, nameMaxW: 0.56, nameMaxH: 0.082,
-                ageX: 0.50, ageY: 0.72, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.85, ageSubSize: 0.05, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.50, photoY: 0.46, photoR: 0.215,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#2E7D32', block: '#1B5E20' }
-            }
-        },
-        'yaris': {
-            defaultName: 'KEREM ALİ',
-            horizontal: {
-                sloganX: 0.50, sloganY: 0.075, sloganArc: 0.06, sloganMaxW: 0.42, sloganMaxH: 0.038,
-                nameX: 0.50, nameY: 0.195, nameArc: 0.04, nameMaxW: 0.48, nameMaxH: 0.075,
-                ageX: 0.50, ageY: 0.76, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.88, ageSubSize: 0.045, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.50, photoY: 0.48, photoR: 0.165,
-                sloganStyle: { top: '#FFFFFF', mid: '#E0E0E0', bot: '#9E9E9E', rim: '#FFD54F', block: '#B71C1C' },
-                nameStyle:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#8E0000' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#D50000', block: '#212121' }
-            },
-            vertical: {
-                sloganX: 0.50, sloganY: 0.08, sloganArc: 0.06, sloganMaxW: 0.50, sloganMaxH: 0.042,
-                nameX: 0.50, nameY: 0.185, nameArc: 0.04, nameMaxW: 0.56, nameMaxH: 0.085,
-                ageX: 0.50, ageY: 0.74, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.86, ageSubSize: 0.05, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.50, photoY: 0.46, photoR: 0.215,
-                sloganStyle: { top: '#FFFFFF', mid: '#E0E0E0', bot: '#9E9E9E', rim: '#FFD54F', block: '#B71C1C' },
-                nameStyle:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#8E0000' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#D50000', block: '#212121' }
-            }
-        },
-        'hayvan-balon': {
-            defaultName: 'ZEYNEP',
-            horizontal: {
-                sloganX: 0.50, sloganY: 0.115, sloganArc: 0.06, sloganMaxW: 0.44, sloganMaxH: 0.042,
-                nameX: 0.50, nameY: 0.25, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.092,
-                ageX: 0.50, ageY: 0.68, ageSize: 0.14, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.81, ageSubSize: 0.046, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.84, photoY: 0.22, photoR: 0.110,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#6D4C41', block: '#3E2723' }
-            },
-            vertical: {
-                sloganX: 0.50, sloganY: 0.10, sloganArc: 0.06, sloganMaxW: 0.52, sloganMaxH: 0.046,
-                nameX: 0.50, nameY: 0.22, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.105,
-                ageX: 0.50, ageY: 0.69, ageSize: 0.16, ageSub: 'YAŞINDA', ageSubX: 0.50, ageSubY: 0.82, ageSubSize: 0.052, ageSubArc: 0, drawSubRibbon: false,
-                photoX: 0.50, photoY: 0.35, photoR: 0.120,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#6D4C41', block: '#3E2723' }
-            }
+    // Dosya adındaki kelimeye göre kurdele, çerçeve ve 3D yazı renk paletini otomatik seçer
+    function getThemePalette(slug) {
+        const s = (slug || '').toLowerCase();
+        if (s.includes('pembe') || s.includes('prenses') || s.includes('kiz')) {
+            return {
+                defaultName: 'ELİF SUDE',
+                topRib: ['#F48FB1', '#EC407A', '#AD1457'],
+                midRib: ['#880E4F', '#D81B60', '#F06292'],
+                frame:  ['#FFF9C4', '#FFD54F', '#F57F17'],
+                rim: '#FFD54F',
+                sloganText: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#880E4F' },
+                nameText:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
+                ageText:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#AD1457', block: '#4A148C' }
+            };
         }
-    };
+        if (s.includes('yesil') || s.includes('safari') || s.includes('orman')) {
+            return {
+                defaultName: 'ALPARSLAN',
+                topRib: ['#81C784', '#43A047', '#1B5E20'],
+                midRib: ['#1B5E20', '#2E7D32', '#66BB6A'],
+                frame:  ['#FFFDE7', '#FFCA28', '#E65100'],
+                rim: '#FFD54F',
+                sloganText: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
+                nameText:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
+                ageText:    { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#2E7D32', block: '#1B5E20' }
+            };
+        }
+        if (s.includes('kirmizi') || s.includes('yaris') || s.includes('araba')) {
+            return {
+                defaultName: 'KEREM ALİ',
+                topRib: ['#EF5350', '#D32F2F', '#8E0000'],
+                midRib: ['#212121', '#B71C1C', '#E53935'],
+                frame:  ['#FFFFFF', '#E0E0E0', '#757575'],
+                rim: '#FFD54F',
+                sloganText: { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFD54F', block: '#8E0000' },
+                nameText:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#212121' },
+                ageText:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#D50000', block: '#212121' }
+            };
+        }
+        if (s.includes('balon') || s.includes('sari') || s.includes('hayvan')) {
+            return {
+                defaultName: 'ZEYNEP',
+                topRib: ['#FFE082', '#FFB300', '#E65100'],
+                midRib: ['#4E342E', '#6D4C41', '#8D6E63'],
+                frame:  ['#FFFDE7', '#FFD54F', '#FF6F00'],
+                rim: '#FFD54F',
+                sloganText: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
+                nameText:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
+                ageText:    { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#6D4C41', block: '#3E2723' }
+            };
+        }
+        // Varsayılan Kraliyet Mavisi & Altın
+        return {
+            defaultName: 'YUSUF MAHİR',
+            topRib: ['#64B5F6', '#42A5F5', '#1E88E5'],
+            midRib: ['#0A2E73', '#1565C0', '#2196F3'],
+            frame:  ['#FFF9C4', '#FFD54F', '#FF8F00'],
+            rim: '#FFD54F',
+            sloganText: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
+            nameText:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
+            ageText:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
+        };
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const initialTheme = urlParams.get('tema') || 'mavi-prens';
-    const isCalMode = urlParams.get('kalibre') === '1';
-
-    if (isCalMode) {
-        document.getElementById('calBar').style.display = 'block';
-    }
 
     let templateFiles = {};
-    let calTarget = 'slogan';
     let state = {
         theme: initialTheme,
         orientation: 'horizontal',
@@ -345,82 +279,6 @@
     const ctx = canvas.getContext('2d');
     let bgImg = new Image();
     let bgLoaded = false;
-
-    function getCfg() {
-        if (!LAYOUTS[state.theme]) {
-            LAYOUTS[state.theme] = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
-        }
-        return LAYOUTS[state.theme][state.orientation];
-    }
-
-    function syncCalUI() {
-        if (!isCalMode) return;
-        const cfg = getCfg();
-        document.getElementById('chkShowRibbon').checked = !!cfg.drawSubRibbon;
-
-        let sizeVal = 0.05, arcVal = 0, xVal = 0.5, yVal = 0.5;
-        if (calTarget === 'slogan') { sizeVal = cfg.sloganMaxH; arcVal = cfg.sloganArc; xVal = cfg.sloganX ?? 0.5; yVal = cfg.sloganY; }
-        else if (calTarget === 'name') { sizeVal = cfg.nameMaxH; arcVal = cfg.nameArc; xVal = cfg.nameX ?? 0.5; yVal = cfg.nameY; }
-        else if (calTarget === 'age') { sizeVal = cfg.ageSize; arcVal = 0; xVal = cfg.ageX ?? 0.5; yVal = cfg.ageY; }
-        else if (calTarget === 'ageSub') { sizeVal = cfg.ageSubSize; arcVal = cfg.ageSubArc || 0; xVal = cfg.ageSubX ?? 0.5; yVal = cfg.ageSubY; }
-        else if (calTarget === 'photo') { sizeVal = cfg.photoR; arcVal = 0; xVal = cfg.photoX; yVal = cfg.photoY; }
-
-        document.getElementById('rngCalSize').value = sizeVal;
-        document.getElementById('rngCalArc').value = arcVal;
-        document.getElementById('rngCalX').value = xVal;
-        document.getElementById('rngCalY').value = yVal;
-        document.getElementById('lblCalSize').textContent = sizeVal.toFixed(3);
-        document.getElementById('lblCalArc').textContent = arcVal.toFixed(2);
-        document.getElementById('lblCalX').textContent = xVal.toFixed(3);
-        document.getElementById('lblCalY').textContent = yVal.toFixed(3);
-    }
-
-    document.querySelectorAll('.cal-tab').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelector('.cal-tab.active').classList.remove('active');
-            btn.classList.add('active');
-            calTarget = btn.dataset.target;
-            syncCalUI();
-        };
-    });
-
-    ['rngCalSize', 'rngCalArc', 'rngCalX', 'rngCalY'].forEach(id => {
-        document.getElementById(id).oninput = () => {
-            const cfg = getCfg();
-            const s = parseFloat(document.getElementById('rngCalSize').value);
-            const a = parseFloat(document.getElementById('rngCalArc').value);
-            const x = parseFloat(document.getElementById('rngCalX').value);
-            const y = parseFloat(document.getElementById('rngCalY').value);
-
-            if (calTarget === 'slogan') { cfg.sloganMaxH = s; cfg.sloganArc = a; cfg.sloganX = x; cfg.sloganY = y; }
-            else if (calTarget === 'name') { cfg.nameMaxH = s; cfg.nameArc = a; cfg.nameX = x; cfg.nameY = y; }
-            else if (calTarget === 'age') { cfg.ageSize = s; cfg.ageX = x; cfg.ageY = y; }
-            else if (calTarget === 'ageSub') { cfg.ageSubSize = s; cfg.ageSubArc = a; cfg.ageSubX = x; cfg.ageSubY = y; }
-            else if (calTarget === 'photo') { cfg.photoR = s; cfg.photoX = x; cfg.photoY = y; }
-
-            syncCalUI();
-            draw();
-        };
-    });
-
-    document.getElementById('chkShowRibbon').onchange = (e) => {
-        getCfg().drawSubRibbon = e.target.checked;
-        draw();
-    };
-
-    async function saveCalibrationToServer() {
-        try {
-            const res = await fetch('/api/sablon-ayari-kaydet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ theme: state.theme, orientation: state.orientation, config: getCfg() })
-            });
-            const d = await res.json();
-            if (d.status === 'ok') alert('Başarılı! Bu şablonun konumu ve kavisi kalıcı olarak kaydedildi.');
-        } catch (e) {
-            alert('Kayıt hatası: ' + e.message);
-        }
-    }
 
     function setSlogan(txt) {
         document.getElementById('inpSlogan').value = txt;
@@ -459,31 +317,16 @@
     }
 
     canvas.addEventListener('mousedown', (e) => {
-        if (!isCalMode && !state.photoImg) return;
+        if (!state.photoImg) return;
         isDragging = true;
         canvas.classList.add('dragging');
         dragStart = getCanvasCoords(e.clientX, e.clientY);
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+        if (!isDragging || !state.photoImg) return;
         const pos = getCanvasCoords(e.clientX, e.clientY);
-        if (isCalMode) {
-            const cfg = getCfg();
-            const dx = (pos.x - dragStart.x) / canvas.width;
-            const dy = (pos.y - dragStart.y) / canvas.height;
-            if (calTarget === 'slogan') { cfg.sloganX = (cfg.sloganX ?? 0.5) + dx; cfg.sloganY += dy; }
-            else if (calTarget === 'name') { cfg.nameX = (cfg.nameX ?? 0.5) + dx; cfg.nameY += dy; }
-            else if (calTarget === 'age') { cfg.ageX = (cfg.ageX ?? 0.5) + dx; cfg.ageY += dy; }
-            else if (calTarget === 'ageSub') { cfg.ageSubX = (cfg.ageSubX ?? 0.5) + dx; cfg.ageSubY += dy; }
-            else if (calTarget === 'photo') { cfg.photoX += dx; cfg.photoY += dy; }
-            dragStart = pos;
-            syncCalUI();
-            draw();
-            return;
-        }
-        if (!state.photoImg) return;
-        const r = canvas.width * getCfg().photoR;
+        const r = canvas.width * MASTER_LAYOUT[state.orientation].photoR;
         state.photoTransform.offsetX += (pos.x - dragStart.x) / r;
         state.photoTransform.offsetY += (pos.y - dragStart.y) / r;
         dragStart = pos;
@@ -521,7 +364,7 @@
         e.preventDefault();
         if (e.touches.length === 1 && isDragging) {
             const pos = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
-            const r = canvas.width * getCfg().photoR;
+            const r = canvas.width * MASTER_LAYOUT[state.orientation].photoR;
             state.photoTransform.offsetX += (pos.x - dragStart.x) / r;
             state.photoTransform.offsetY += (pos.y - dragStart.y) / r;
             dragStart = pos;
@@ -552,58 +395,88 @@
 
         let idx = 0;
         bgLoaded = false;
-        syncCalUI();
         draw();
 
         function tryNext() {
-            if (idx >= candidates.length) {
-                draw();
-                return;
-            }
+            if (idx >= candidates.length) { draw(); return; }
             const img = new Image();
-            img.onload = () => {
-                bgImg = img;
-                bgLoaded = true;
-                syncCalUI();
-                draw();
-            };
-            img.onerror = () => {
-                idx++;
-                tryNext();
-            };
+            img.onload = () => { bgImg = img; bgLoaded = true; draw(); };
+            img.onerror = () => { idx++; tryNext(); };
             img.src = candidates[idx];
         }
         tryNext();
     }
 
-    function draw3DSubRibbon(targetCtx, cx, cy, w, h) {
+    // 3D Vektörel Altın/Gümüş Madalyon Çerçeve Çizici
+    function drawMasterFrame(targetCtx, cx, cy, r, pal) {
         targetCtx.save();
         targetCtx.shadowColor = 'rgba(0,0,0,0.45)';
-        targetCtx.shadowBlur = h * 0.25;
-        targetCtx.shadowOffsetY = h * 0.12;
+        targetCtx.shadowBlur = r * 0.14;
+        targetCtx.shadowOffsetY = r * 0.06;
 
-        const tailW = w * 0.22;
-        const tailH = h * 0.78;
+        // Dış kalın metalik halka
+        const outerR = r * 1.09;
+        const grad = targetCtx.createLinearGradient(cx - outerR, cy - outerR, cx + outerR, cy + outerR);
+        grad.addColorStop(0.0, pal.frame[0]);
+        grad.addColorStop(0.35, pal.frame[1]);
+        grad.addColorStop(0.70, pal.frame[2]);
+        grad.addColorStop(1.0, pal.frame[1]);
+
+        targetCtx.beginPath();
+        targetCtx.arc(cx, cy, outerR, 0, Math.PI * 2);
+        targetCtx.arc(cx, cy, r * 0.99, 0, Math.PI * 2, true);
+        targetCtx.fillStyle = grad;
+        targetCtx.fill();
+
+        // İç parlak kontur çizgisi
+        targetCtx.shadowColor = 'transparent';
+        targetCtx.beginPath();
+        targetCtx.arc(cx, cy, r * 0.995, 0, Math.PI * 2);
+        targetCtx.lineWidth = Math.max(3, r * 0.025);
+        targetCtx.strokeStyle = '#FFFFFF';
+        targetCtx.stroke();
+
+        targetCtx.beginPath();
+        targetCtx.arc(cx, cy, outerR, 0, Math.PI * 2);
+        targetCtx.lineWidth = Math.max(3, r * 0.022);
+        targetCtx.strokeStyle = pal.frame[2];
+        targetCtx.stroke();
+        targetCtx.restore();
+    }
+
+    // 3D Vektörel Kavisli Kurdele Çizici (Üst Slogan, Orta İsim ve Alt Yaş İçin Ortak Motor)
+    function drawMasterRibbon(targetCtx, cx, cy, w, h, colors, rimColor, hasRim) {
+        targetCtx.save();
+        targetCtx.shadowColor = 'rgba(0,0,0,0.42)';
+        targetCtx.shadowBlur = h * 0.22;
+        targetCtx.shadowOffsetY = h * 0.10;
+
+        // Sol ve sağ kıvrımlı kurdele kuyrukları
+        const tailW = w * 0.16;
+        const tailH = h * 0.82;
         const drawTail = (dir) => {
-            const sx = cx + dir * (w * 0.44);
-            const sy = cy + h * 0.08;
+            const sx = cx + dir * (w * 0.45);
+            const sy = cy + h * 0.14;
             targetCtx.beginPath();
             targetCtx.moveTo(sx, sy - tailH / 2);
-            targetCtx.lineTo(sx + dir * tailW, sy - tailH * 0.42);
+            targetCtx.lineTo(sx + dir * tailW, sy - tailH * 0.38);
             targetCtx.lineTo(sx + dir * (tailW * 0.72), sy);
-            targetCtx.lineTo(sx + dir * tailW, sy + tailH * 0.42);
+            targetCtx.lineTo(sx + dir * tailW, sy + tailH * 0.38);
             targetCtx.lineTo(sx, sy + tailH / 2);
             targetCtx.closePath();
-            targetCtx.fillStyle = '#0D47A1';
+            targetCtx.fillStyle = colors[0];
             targetCtx.fill();
-            targetCtx.lineWidth = Math.max(3, h * 0.045);
-            targetCtx.strokeStyle = '#FFC107';
-            targetCtx.stroke();
+            if (hasRim) {
+                targetCtx.lineWidth = Math.max(3, h * 0.035);
+                targetCtx.strokeStyle = rimColor;
+                targetCtx.stroke();
+            }
         };
         drawTail(-1);
         drawTail(1);
 
-        const arch = h * 0.18;
+        // Ana gökkuşağı kavisli kurdele gövdesi
+        const arch = h * 0.24;
         targetCtx.beginPath();
         targetCtx.moveTo(cx - w / 2, cy - h / 2 + arch);
         targetCtx.quadraticCurveTo(cx, cy - h / 2 - arch, cx + w / 2, cy - h / 2 + arch);
@@ -612,17 +485,19 @@
         targetCtx.closePath();
 
         const grad = targetCtx.createLinearGradient(cx - w / 2, cy, cx + w / 2, cy);
-        grad.addColorStop(0.0, '#0A2E73');
-        grad.addColorStop(0.25, '#1976D2');
-        grad.addColorStop(0.50, '#2196F3');
-        grad.addColorStop(0.75, '#1976D2');
-        grad.addColorStop(1.0, '#0A2E73');
+        grad.addColorStop(0.0, colors[0]);
+        grad.addColorStop(0.28, colors[1]);
+        grad.addColorStop(0.50, colors[2]);
+        grad.addColorStop(0.72, colors[1]);
+        grad.addColorStop(1.0, colors[0]);
         targetCtx.fillStyle = grad;
         targetCtx.fill();
 
-        targetCtx.lineWidth = Math.max(4, h * 0.06);
-        targetCtx.strokeStyle = '#FFD54F';
-        targetCtx.stroke();
+        if (hasRim) {
+            targetCtx.lineWidth = Math.max(4, h * 0.045);
+            targetCtx.strokeStyle = rimColor;
+            targetCtx.stroke();
+        }
         targetCtx.restore();
     }
 
@@ -722,29 +597,36 @@
         return Math.floor(basePx * 0.62);
     }
 
-    function renderAllOverlays(targetCtx, W, H, cfg, slogan, name, age) {
-        const sX = W * (cfg.sloganX ?? 0.5);
-        const nX = W * (cfg.nameX ?? 0.5);
-        const aX = W * (cfg.ageX ?? 0.5);
-        const subX = W * (cfg.ageSubX ?? 0.5);
+    // Tüm Master Katmanları (Çerçeve + 3 Kurdele + 3D Yazılar) Tek Seferde Çizer
+    function renderMasterOverlay(targetCtx, W, H, orient, themeSlug, slogan, name, age) {
+        const cfg = MASTER_LAYOUT[orient];
+        const pal = getThemePalette(themeSlug);
+        const cx = W * 0.50;
+        const r = W * cfg.photoR;
+        const py = H * cfg.photoY;
 
+        // 1. Fotoğraf çerçevesi (fotoğrafın kenarını kusursuz kapatır)
+        drawMasterFrame(targetCtx, cx, py, r, pal);
+
+        // 2. Üst Slogan Kurdelesi + 3D Yazısı
+        drawMasterRibbon(targetCtx, cx, H * cfg.sloganY, W * cfg.topRibbonW, H * cfg.topRibbonH, pal.topRib, pal.rim, false);
         if (slogan) {
             const sSize = fitFontSize(targetCtx, slogan, Math.floor(W * cfg.sloganMaxH), W * cfg.sloganMaxW);
-            drawEmbossed3D(targetCtx, slogan, sX, H * cfg.sloganY, sSize, cfg.sloganArc, cfg.sloganStyle);
+            drawEmbossed3D(targetCtx, slogan, cx, H * cfg.sloganY, sSize, cfg.sloganArc, pal.sloganText);
         }
 
+        // 3. Orta İsim Kurdelesi (Çerçevenin alt kenarının önüne biner) + 3D İsim
+        drawMasterRibbon(targetCtx, cx, H * cfg.nameY, W * cfg.midRibbonW, H * cfg.midRibbonH, pal.midRib, pal.rim, true);
         if (name) {
             const nSize = fitFontSize(targetCtx, name, Math.floor(W * cfg.nameMaxH), W * cfg.nameMaxW);
-            drawEmbossed3D(targetCtx, name, nX, H * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
+            drawEmbossed3D(targetCtx, name, cx, H * cfg.nameY, nSize, cfg.nameArc, pal.nameText);
         }
 
-        if (cfg.drawSubRibbon) {
-            draw3DSubRibbon(targetCtx, subX, H * cfg.ageSubY, W * 0.25, H * 0.072);
-        }
-
+        // 4. Alt YAŞ Kurdelesi + Dev Yaş Rakamı + YAŞ Yazısı
+        drawMasterRibbon(targetCtx, cx, H * cfg.ageSubY, W * cfg.botRibbonW, H * cfg.botRibbonH, pal.midRib, pal.rim, true);
         const aSize = getAgeFontSize(Math.floor(W * cfg.ageSize), age);
-        drawEmbossed3D(targetCtx, age, aX, H * cfg.ageY, aSize, 0, cfg.ageStyle);
-        drawEmbossed3D(targetCtx, cfg.ageSub, subX, H * cfg.ageSubY, Math.floor(W * cfg.ageSubSize), cfg.ageSubArc || 0, cfg.nameStyle);
+        drawEmbossed3D(targetCtx, age, cx, H * cfg.ageY, aSize, 0, pal.ageText);
+        drawEmbossed3D(targetCtx, 'YAŞ', cx, H * cfg.ageSubY, Math.floor(W * cfg.ageSubSize), cfg.ageSubArc, pal.nameText);
     }
 
     function draw() {
@@ -754,7 +636,7 @@
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const cfg = getCfg();
+        const cfg = MASTER_LAYOUT[state.orientation];
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
         const age = document.getElementById('inpAge').value.trim() || '1';
@@ -763,6 +645,7 @@
         const px = canvas.width * cfg.photoX;
         const py = canvas.height * cfg.photoY;
 
+        // Katman 1: Zemin İllüstrasyonu
         if (bgLoaded && bgImg.naturalWidth > 0) {
             ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
         } else {
@@ -770,11 +653,13 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
+        // Katman 2: Müşteri Fotoğrafı (veya boş yuvarlak)
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.clip();
+
         if (state.photoImg) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(px, py, r * 0.945, 0, Math.PI * 2);
-            ctx.clip();
             const imgRatio = state.photoImg.width / state.photoImg.height;
             let baseW = r * 2, baseH = r * 2;
             if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
@@ -783,50 +668,33 @@
             const shiftX = state.photoTransform.offsetX * r;
             const shiftY = state.photoTransform.offsetY * r;
             ctx.drawImage(state.photoImg, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
-            ctx.restore();
-
-            if (bgLoaded && bgImg.naturalWidth > 0 && (state.theme === 'mavi-prens' || !LAYOUTS[state.theme])) {
-                const ribbonTopY = isHoriz ? canvas.height * 0.542 : canvas.height * 0.495;
-                const ribbonH = isHoriz ? canvas.height * 0.14 : canvas.height * 0.13;
-                const ribbonW = isHoriz ? canvas.width * 0.36 : canvas.width * 0.48;
-                ctx.drawImage(
-                    bgImg,
-                    (bgImg.naturalWidth / canvas.width) * (px - ribbonW / 2),
-                    (bgImg.naturalHeight / canvas.height) * ribbonTopY,
-                    (bgImg.naturalWidth / canvas.width) * ribbonW,
-                    (bgImg.naturalHeight / canvas.height) * ribbonH,
-                    px - ribbonW / 2,
-                    ribbonTopY,
-                    ribbonW,
-                    ribbonH
-                );
-            }
         } else {
-            ctx.save();
+            ctx.fillStyle = 'rgba(255,255,255,0.88)';
+            ctx.fillRect(px - r, py - r, r * 2, r * 2);
             ctx.fillStyle = '#0A2463';
-            ctx.font = `700 ${Math.floor(r * 0.13)}px 'Plus Jakarta Sans', sans-serif`;
+            ctx.font = `700 ${Math.floor(r * 0.14)}px 'Plus Jakarta Sans', sans-serif`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText('FOTOĞRAFINIZ', px, py - r * 0.08);
             ctx.fillText('BURAYA GELİR', px, py + r * 0.10);
-            ctx.restore();
         }
+        ctx.restore();
 
-        renderAllOverlays(ctx, canvas.width, canvas.height, cfg, slogan, name, age);
+        // Katman 3: Standart Çerçeve + Kurdeleler + 3D Yazılar
+        renderMasterOverlay(ctx, canvas.width, canvas.height, state.orientation, state.theme, slogan, name, age);
 
-        if (!isCalMode) {
-            ctx.save();
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.rotate(-28 * Math.PI / 180);
-            ctx.font = "bold 38px sans-serif";
-            ctx.fillStyle = "rgba(30, 25, 59, 0.13)";
-            ctx.textAlign = "center";
-            for (let y = -canvas.height; y < canvas.height; y += 160) {
-                for (let x = -canvas.width; x < canvas.width; x += 440) {
-                    ctx.fillText("ÖNİZLEME • PREMİUM AFİŞ", x, y);
-                }
+        // Koruma Filigranı
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(-28 * Math.PI / 180);
+        ctx.font = "bold 38px sans-serif";
+        ctx.fillStyle = "rgba(30, 25, 59, 0.13)";
+        ctx.textAlign = "center";
+        for (let y = -canvas.height; y < canvas.height; y += 160) {
+            for (let x = -canvas.width; x < canvas.width; x += 440) {
+                ctx.fillText("ÖNİZLEME • PREMİUM AFİŞ", x, y);
             }
-            ctx.restore();
         }
+        ctx.restore();
     }
 
     function bindThemeButtons() {
@@ -837,8 +705,7 @@
                 b.classList.add('active');
                 state.theme = b.dataset.t;
                 if (!state.userTypedName) {
-                    const tObj = LAYOUTS[state.theme] || DEFAULT_LAYOUT;
-                    document.getElementById('inpName').value = tObj.defaultName;
+                    document.getElementById('inpName').value = getThemePalette(state.theme).defaultName;
                 }
                 loadTemplate();
             };
@@ -848,16 +715,8 @@
     bindThemeButtons();
     loadTemplate();
 
-    fetch('/api/sablonlar').then(r => r.json()).then(resData => {
-        const list = resData.templates || [];
-        const savedLayouts = resData.customLayouts || {};
-        Object.keys(savedLayouts).forEach(tKey => {
-            if (!LAYOUTS[tKey]) LAYOUTS[tKey] = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
-            if (savedLayouts[tKey].horizontal) Object.assign(LAYOUTS[tKey].horizontal, savedLayouts[tKey].horizontal);
-            if (savedLayouts[tKey].vertical) Object.assign(LAYOUTS[tKey].vertical, savedLayouts[tKey].vertical);
-        });
-
-        if (list.length > 0) {
+    fetch('/api/sablonlar').then(r => r.json()).then(list => {
+        if (list && list.length > 0) {
             const container = document.getElementById('themes');
             container.innerHTML = '';
             list.forEach(item => {
@@ -910,24 +769,23 @@
         document.getElementById('checkoutModal').style.display = 'flex';
     }
 
-    function renderHighResTextLayer() {
+    function renderHighResOverlayLayer() {
         const isHoriz = state.orientation === 'horizontal';
         const hiCanvas = document.createElement('canvas');
         hiCanvas.width = isHoriz ? 4800 : 3600;
         hiCanvas.height = isHoriz ? 3600 : 4800;
         const hCtx = hiCanvas.getContext('2d');
 
-        const cfg = getCfg();
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
         const age = document.getElementById('inpAge').value.trim() || '1';
 
-        renderAllOverlays(hCtx, hiCanvas.width, hiCanvas.height, cfg, slogan, name, age);
+        renderMasterOverlay(hCtx, hiCanvas.width, hiCanvas.height, state.orientation, state.theme, slogan, name, age);
         return hiCanvas.toDataURL('image/png');
     }
 
     async function submitOrder() {
-        const textLayerBase64 = renderHighResTextLayer();
+        const overlayLayerBase64 = renderHighResOverlayLayer();
         const payload = {
             slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
             name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
@@ -942,7 +800,7 @@
             customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
             photoBase64: state.photoBase64,
             photoTransform: state.photoTransform,
-            textLayerBase64: textLayerBase64,
+            overlayLayerBase64: overlayLayerBase64,
             isTestOrder: state.isTest
         };
 
