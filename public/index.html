@@ -1,554 +1,210 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Afiş | Kişiye Özel Doğum Günü Afişleri</title>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Montserrat:wght@800;900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root { --bg: #FFF5F8; --pink: #E6007E; --navy: #1E193B; --border: #F8BBD0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--navy); padding-bottom: 50px; }
-        h1, h2, .brand { font-family: 'Fredoka', sans-serif; }
-        .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
-        header { text-align: center; margin-bottom: 24px; }
-        .brand { font-size: 32px; font-weight: 700; }
-        .brand span { color: var(--pink); }
-        .sub { color: #7B2869; font-size: 14px; font-weight: 600; }
+const express = require('express');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const { createCanvas, loadImage } = require('canvas');
 
-        .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; background: #fff; padding: 24px; border-radius: 24px; box-shadow: 0 10px 30px rgba(230,0,126,0.08); }
-        @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
+const app = express();
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-        .preview-area { background: #FDF2F6; border: 2px dashed var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        canvas { max-width: 100%; max-height: 560px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; }
-        .lock-note { margin-top: 10px; font-size: 12px; color: #880E4F; background: #FCE4EC; padding: 6px 14px; border-radius: 20px; font-weight: 600; text-align: center; }
+const PAYTR_CONFIG = {
+    merchant_id: process.env.PAYTR_ID || 'BURAYA_MAGAZA_NO',
+    merchant_key: process.env.PAYTR_KEY || 'BURAYA_MAGAZA_KEY',
+    merchant_salt: process.env.PAYTR_SALT || 'BURAYA_MAGAZA_SALT',
+    ok_url: process.env.SITE_URL ? `${process.env.SITE_URL}/?odeme=basarili` : 'http://localhost:3000/?odeme=basarili',
+    fail_url: process.env.SITE_URL ? `${process.env.SITE_URL}/?odeme=hatali` : 'http://localhost:3000/?odeme=hatali',
+    test_mode: '1'
+};
 
-        .grp { margin-bottom: 14px; }
-        .grp label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 5px; }
-        .pills { display: flex; flex-wrap: wrap; gap: 6px; }
-        .pill { padding: 8px 13px; border-radius: 50px; border: 1.5px solid var(--pink); background: #fff; color: var(--pink); font-weight: 700; font-size: 12px; cursor: pointer; }
-        .pill.active { background: var(--pink); color: #fff; }
+const outputDir = path.join(__dirname, 'BASKIYA_HAZIR_DOSYALAR');
+if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+app.use('/baski-dosyalari', express.static(outputDir));
 
-        .row2 { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
-        input, select, textarea { width: 100%; padding: 10px 13px; border: 1.5px solid #E0C3D0; border-radius: 12px; font-size: 14px; font-family: inherit; font-weight: 600; color: var(--navy); }
-        .quick-slogans { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
-        .q-tag { font-size: 11px; background: #FCE4EC; color: #AD1457; border: none; padding: 4px 9px; border-radius: 12px; font-weight: 700; cursor: pointer; }
-        .upload-btn { border: 1.5px dashed var(--pink); border-radius: 12px; padding: 10px; text-align: center; background: #FFF9FB; color: var(--pink); font-weight: 700; font-size: 13px; cursor: pointer; }
+const ordersFile = path.join(__dirname, 'siparisler.json');
+let ordersDB = fs.existsSync(ordersFile) ? JSON.parse(fs.readFileSync(ordersFile, 'utf8')) : {};
+function saveOrders() {
+    fs.writeFileSync(ordersFile, JSON.stringify(ordersDB, null, 2), 'utf8');
+}
 
-        .orient-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .orient-btn { padding: 9px; border: 1.5px solid #E0C3D0; border-radius: 10px; background: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
-        .orient-btn.active { border-color: var(--pink); background: #FCE4EC; color: var(--pink); }
+const PHOTO_AREAS = {
+    'mavi-prens': { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.170 } },
+    'prenses': { horizontal: { x: 0.18, y: 0.36, r: 0.10 }, vertical: { x: 0.50, y: 0.48, r: 0.11 } },
+    'safari': { horizontal: { x: 0.50, y: 0.48, r: 0.15 }, vertical: { x: 0.50, y: 0.46, r: 0.17 } },
+    'yaris': { horizontal: { x: 0.50, y: 0.48, r: 0.145 }, vertical: { x: 0.50, y: 0.46, r: 0.17 } },
+    'hayvan-balon': { horizontal: { x: 0.84, y: 0.22, r: 0.095 }, vertical: { x: 0.50, y: 0.35, r: 0.10 } }
+};
 
-        .sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .size-box { border: 1.5px solid #E0C3D0; border-radius: 12px; padding: 10px 6px; text-align: center; cursor: pointer; }
-        .size-box.active { border-color: var(--pink); background: #FFF0F6; }
-        .size-box .dim { font-weight: 700; font-size: 12px; display: block; }
-        .size-box .pr { color: var(--pink); font-weight: 700; font-size: 14px; }
+app.post('/api/siparis-olustur', async (req, res) => {
+    try {
+        const { slogan, name, age, theme, orientation, size, price, customerName, customerPhone, customerEmail, customerAddress, photoBase64, textLayerBase64, isTestOrder } = req.body;
 
-        .btn-main { width: 100%; background: var(--pink); color: #fff; border: none; padding: 14px; border-radius: 50px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 6px 18px rgba(230,0,126,0.3); }
-        .btn-test { width: 100%; background: var(--navy); color: #fff; border: none; padding: 11px; border-radius: 50px; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+        const merchant_oid = 'AFIS' + Date.now();
+        ordersDB[merchant_oid] = {
+            merchant_oid,
+            date: new Date().toLocaleString('tr-TR'),
+            slogan: slogan || 'İYİ Kİ DOĞDUN',
+            name, age, theme, orientation, size, price,
+            customerName, customerPhone, customerEmail, customerAddress,
+            photoBase64: photoBase64 || null,
+            textLayerBase64: textLayerBase64 || null,
+            status: 'ODEME_BEKLIYOR',
+            fileName: null
+        };
+        saveOrders();
 
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 16px; z-index: 99; }
-        .modal-card { background: #fff; max-width: 480px; width: 100%; border-radius: 20px; padding: 24px; max-height: 90vh; overflow-y: auto; }
-        .modal-card h3 { margin-bottom: 12px; color: var(--pink); }
-        .modal-card .grp { margin-bottom: 12px; }
-    </style>
-</head>
-<body>
-
-<div class="wrap">
-    <header>
-        <div class="brand">Premium<span>Afiş</span></div>
-        <div class="sub">Kişiye Özel Doğum Günü Afişleri • Anında Tasarla & Sipariş Ver</div>
-    </header>
-
-    <div class="grid">
-        <div class="preview-area">
-            <canvas id="canvas"></canvas>
-            <div class="lock-note">Önizleme korumalıdır. Ödeme sonrası filigransız yüksek çözünürlüklü baskı üretilir.</div>
-        </div>
-
-        <div>
-            <h2 style="font-size:21px; margin-bottom:4px;">Minik mutluluklar, büyük anılar.</h2>
-            <p style="font-size:13px; color:#5C5470; margin-bottom:14px;">Hazır örnek tasarımı kendi isminiz ve fotoğrafınızla anında değiştirin.</p>
-
-            <div class="grp">
-                <label>1. Temanı Seç</label>
-                <div class="pills" id="themes">
-                    <button class="pill active" data-t="mavi-prens">Mavi Prens</button>
-                    <button class="pill" data-t="prenses">Pembe Prenses</button>
-                    <button class="pill" data-t="safari">Orman Safari</button>
-                    <button class="pill" data-t="yaris">Yarış Arabaları</button>
-                    <button class="pill" data-t="hayvan-balon">Hayvan Balonlar</button>
-                </div>
-            </div>
-
-            <div class="grp">
-                <label>2. Üst Slogan Yazısı (İstediğini Yaz)</label>
-                <input type="text" id="inpSlogan" value="İYİ Kİ DOĞDUN" maxlength="22">
-                <div class="quick-slogans">
-                    <button type="button" class="q-tag" onclick="setSlogan('İYİ Kİ DOĞDUN')">İYİ Kİ DOĞDUN</button>
-                    <button type="button" class="q-tag" onclick="setSlogan('MUTLU YILLAR')">MUTLU YILLAR</button>
-                    <button type="button" class="q-tag" onclick="setSlogan('CANIM OĞLUM')">CANIM OĞLUM</button>
-                    <button type="button" class="q-tag" onclick="setSlogan('CANIM KIZIM')">CANIM KIZIM</button>
-                </div>
-            </div>
-
-            <div class="grp row2">
-                <div>
-                    <label>3. Çocuğun İsmi</label>
-                    <input type="text" id="inpName" value="YUSUF MAHİR" maxlength="22">
-                </div>
-                <div>
-                    <label>Yaşı</label>
-                    <select id="inpAge">
-                        <option value="1" selected>1 Yaş</option>
-                        <option value="2">2 Yaş</option>
-                        <option value="3">3 Yaş</option>
-                        <option value="4">4 Yaş</option>
-                        <option value="5">5 Yaş</option>
-                        <option value="6">6 Yaş</option>
-                        <option value="7">7 Yaş</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="grp">
-                <label>4. Fotoğraf Yükle (Kendi Fotoğrafınızla Değiştirin)</label>
-                <div class="upload-btn" onclick="document.getElementById('inpPhoto').click()">+ Fotoğraf Seçmek İçin Tıklayın</div>
-                <input type="file" id="inpPhoto" accept="image/*" style="display:none;">
-            </div>
-
-            <div class="grp">
-                <label>5. Yön ve Ölçü Seç</label>
-                <div class="orient-row">
-                    <button class="orient-btn active" data-o="horizontal">Yatay Afiş</button>
-                    <button class="orient-btn" data-o="vertical">Dikey Afiş</button>
-                </div>
-                <div class="sizes" id="sizes">
-                    <div class="size-box" data-s="100x70" data-p="450"><span class="dim">100 x 70 cm</span><span class="pr">450 TL</span></div>
-                    <div class="size-box" data-s="100x150" data-p="690"><span class="dim">100 x 150 cm</span><span class="pr">690 TL</span></div>
-                    <div class="size-box active" data-s="150x200" data-p="950"><span class="dim">150 x 200 cm</span><span class="pr">950 TL</span></div>
-                </div>
-            </div>
-
-            <button class="btn-main" onclick="openCheckout(false)">Tasarımı Onayla ve PayTR ile Öde (<span id="lblPrice">950 TL</span>)</button>
-            <button class="btn-test" onclick="openCheckout(true)">Robot Testi (Ödemesiz Baskı Dosyası Üret)</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal" id="checkoutModal">
-    <div class="modal-card">
-        <h3 id="modalTitle">Teslimat Bilgileri</h3>
-        <div class="grp"><label>Adınız Soyadınız</label><input type="text" id="custName" placeholder="Örn: Ayşe Yılmaz"></div>
-        <div class="grp"><label>Telefon Numaranız</label><input type="text" id="custPhone" placeholder="05XX XXX XX XX"></div>
-        <div class="grp"><label>E-Posta Adresiniz</label><input type="text" id="custEmail" placeholder="ornek@mail.com"></div>
-        <div class="grp"><label>Kargo Teslimat Adresi</label><textarea id="custAddress" rows="3" placeholder="Mahalle, sokak, bina no, ilçe/il..."></textarea></div>
-        <div id="paytrBox"></div>
-        <button class="btn-main" id="btnSubmitOrder" onclick="submitOrder()">Ödemeye Geç</button>
-        <button class="btn-test" onclick="document.getElementById('checkoutModal').style.display='none'">Vazgeç</button>
-    </div>
-</div>
-
-<script>
-    const LAYOUTS = {
-        'mavi-prens': {
-            defaultName: 'YUSUF MAHİR',
-            horizontal: {
-                sloganY: 0.118, sloganArc: 0.22, sloganMaxW: 0.36, sloganMaxH: 0.048,
-                nameY: 0.625, nameArc: 0.15, nameMaxW: 0.30, nameMaxH: 0.055,
-                ageY: 0.775, ageSize: 0.135, ageSub: 'YAŞ', ageSubY: 0.892, ageSubSize: 0.038,
-                photoX: 0.50, photoY: 0.415, photoR: 0.145,
-                // Orijinal görseldeki 3D kabartma renkleri
-                sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
-                nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
-            },
-            vertical: {
-                sloganY: 0.122, sloganArc: 0.22, sloganMaxW: 0.44, sloganMaxH: 0.052,
-                nameY: 0.562, nameArc: 0.15, nameMaxW: 0.38, nameMaxH: 0.062,
-                ageY: 0.720, ageSize: 0.150, ageSub: 'YAŞ', ageSubY: 0.848, ageSubSize: 0.044,
-                photoX: 0.50, photoY: 0.365, photoR: 0.170,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
-                nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
-            }
-        },
-        'prenses': {
-            defaultName: 'ELİF SUDE',
-            horizontal: {
-                sloganY: 0.28, sloganArc: 0.12, sloganMaxW: 0.42, sloganMaxH: 0.045,
-                nameY: 0.42, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.088,
-                ageY: 0.61, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubY: 0.72, ageSubSize: 0.045,
-                photoX: 0.18, photoY: 0.36, photoR: 0.10,
-                sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#AD1457', block: '#4A148C' }
-            },
-            vertical: {
-                sloganY: 0.24, sloganArc: 0.12, sloganMaxW: 0.52, sloganMaxH: 0.048,
-                nameY: 0.37, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.10,
-                ageY: 0.58, ageSize: 0.15, ageSub: 'YAŞINDA', ageSubY: 0.70, ageSubSize: 0.05,
-                photoX: 0.50, photoY: 0.48, photoR: 0.11,
-                sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#AD1457', block: '#4A148C' }
-            }
-        },
-        'safari': {
-            defaultName: 'ALPARSLAN',
-            horizontal: {
-                sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.42, sloganMaxH: 0.042,
-                nameY: 0.21, nameArc: 0.08, nameMaxW: 0.48, nameMaxH: 0.072,
-                ageY: 0.71, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubY: 0.85, ageSubSize: 0.045,
-                photoX: 0.50, photoY: 0.48, photoR: 0.15,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#2E7D32', block: '#1B5E20' }
-            },
-            vertical: {
-                sloganY: 0.11, sloganArc: 0.10, sloganMaxW: 0.50, sloganMaxH: 0.045,
-                nameY: 0.21, nameArc: 0.08, nameMaxW: 0.56, nameMaxH: 0.082,
-                ageY: 0.70, ageSize: 0.14, ageSub: 'YAŞINDA', ageSubY: 0.84, ageSubSize: 0.048,
-                photoX: 0.50, photoY: 0.46, photoR: 0.17,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#FFFFFF', block: '#1B5E20' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFFDE7', bot: '#FFE082', rim: '#FF8F00', block: '#1B5E20' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFCA28', bot: '#E65100', rim: '#2E7D32', block: '#1B5E20' }
-            }
-        },
-        'yaris': {
-            defaultName: 'KEREM ALİ',
-            horizontal: {
-                sloganY: 0.075, sloganArc: 0.06, sloganMaxW: 0.42, sloganMaxH: 0.038,
-                nameY: 0.195, nameArc: 0.04, nameMaxW: 0.48, nameMaxH: 0.075,
-                ageY: 0.76, ageSize: 0.13, ageSub: 'YAŞINDA', ageSubY: 0.88, ageSubSize: 0.045,
-                photoX: 0.50, photoY: 0.48, photoR: 0.145,
-                sloganStyle: { top: '#FFFFFF', mid: '#E0E0E0', bot: '#9E9E9E', rim: '#FFD54F', block: '#B71C1C' },
-                nameStyle:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#8E0000' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#D50000', block: '#212121' }
-            },
-            vertical: {
-                sloganY: 0.08, sloganArc: 0.06, sloganMaxW: 0.50, sloganMaxH: 0.042,
-                nameY: 0.185, nameArc: 0.04, nameMaxW: 0.56, nameMaxH: 0.085,
-                ageY: 0.73, ageSize: 0.14, ageSub: 'YAŞINDA', ageSubY: 0.85, ageSubSize: 0.048,
-                photoX: 0.50, photoY: 0.46, photoR: 0.17,
-                sloganStyle: { top: '#FFFFFF', mid: '#E0E0E0', bot: '#9E9E9E', rim: '#FFD54F', block: '#B71C1C' },
-                nameStyle:   { top: '#FFFFFF', mid: '#F5F5F5', bot: '#BDBDBD', rim: '#FFCA28', block: '#8E0000' },
-                ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#D50000', block: '#212121' }
-            }
-        },
-        'hayvan-balon': {
-            defaultName: 'ZEYNEP',
-            horizontal: {
-                sloganY: 0.115, sloganArc: 0.06, sloganMaxW: 0.44, sloganMaxH: 0.042,
-                nameY: 0.25, nameArc: 0.0, nameMaxW: 0.48, nameMaxH: 0.092,
-                ageY: 0.68, ageSize: 0.14, ageSub: 'YAŞINDA', ageSubY: 0.81, ageSubSize: 0.046,
-                photoX: 0.84, photoY: 0.22, photoR: 0.095,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#6D4C41', block: '#3E2723' }
-            },
-            vertical: {
-                sloganY: 0.10, sloganArc: 0.06, sloganMaxW: 0.52, sloganMaxH: 0.046,
-                nameY: 0.22, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.105,
-                ageY: 0.68, ageSize: 0.15, ageSub: 'YAŞINDA', ageSubY: 0.81, ageSubSize: 0.05,
-                photoX: 0.50, photoY: 0.35, photoR: 0.10,
-                sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
-                nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
-                ageStyle:    { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#6D4C41', block: '#3E2723' }
-            }
-        }
-    };
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialTheme = LAYOUTS[urlParams.get('tema')] ? urlParams.get('tema') : 'mavi-prens';
-
-    let state = { theme: initialTheme, orientation: 'horizontal', size: '150x200', price: 950, photoBase64: null, photoImg: null, userTypedName: false, isTest: false };
-
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const bgImg = new Image();
-
-    function setSlogan(txt) {
-        document.getElementById('inpSlogan').value = txt;
-        draw();
-    }
-
-    function loadTemplate() {
-        const dir = state.orientation === 'horizontal' ? 'yatay' : 'dikey';
-        bgImg.onload = draw;
-        bgImg.src = `sablonlar/${state.theme}-${dir}.jpg`;
-    }
-
-    function fitFontSize(targetCtx, text, maxFontPx, maxWidthPx) {
-        let size = maxFontPx;
-        targetCtx.font = `900 ${size}px 'Montserrat', 'Fredoka', sans-serif`;
-        let measured = targetCtx.measureText(text).width * 1.05;
-        if (measured > maxWidthPx) {
-            size = Math.floor(size * (maxWidthPx / measured));
-        }
-        return Math.max(18, size);
-    }
-
-    function renderArcChars(targetCtx, chars, widths, totalWidth, cx, cy, radius, arcStrength, drawFn) {
-        let currentX = -totalWidth / 2;
-        for (let i = 0; i < chars.length; i++) {
-            const charMid = currentX + widths[i] / 2;
-            targetCtx.save();
-            if (arcStrength > 0) {
-                const angle = charMid / radius;
-                const x = cx + Math.sin(angle) * radius;
-                const y = cy + (radius - Math.cos(angle) * radius);
-                targetCtx.translate(x, y);
-                targetCtx.rotate(angle);
-            } else {
-                targetCtx.translate(cx + charMid, cy);
-            }
-            drawFn(chars[i]);
-            targetCtx.restore();
-            currentX += widths[i];
-        }
-    }
-
-    // Yüksek derinlikli 3D kabartma motoru (hem önizleme hem 300 DPI baskı için ortak)
-    function drawEmbossed3D(targetCtx, text, centerX, centerY, fontSize, arcStrength, style) {
-        if (!text) return;
-        targetCtx.save();
-        targetCtx.font = `900 ${fontSize}px 'Montserrat', 'Fredoka', sans-serif`;
-        targetCtx.textAlign = 'center';
-        targetCtx.textBaseline = 'middle';
-
-        const chars = text.split('');
-        const widths = chars.map(c => targetCtx.measureText(c).width * 1.04);
-        const totalWidth = widths.reduce((a, b) => a + b, 0);
-        const radius = arcStrength > 0 ? (totalWidth / (arcStrength * Math.PI)) : 999999;
-
-        // 1. Yumuşak ortam gölgesi
-        renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY + fontSize * 0.22, radius, arcStrength, (ch) => {
-            targetCtx.shadowColor = 'rgba(0,0,0,0.55)';
-            targetCtx.shadowBlur = fontSize * 0.22;
-            targetCtx.fillStyle = 'rgba(0,0,0,0.4)';
-            targetCtx.fillText(ch, 0, 0);
-        });
-
-        // 2. Kalın 3D ekstrüzyon (derin kabartma bloğu)
-        const depthSteps = Math.max(12, Math.floor(fontSize * 0.22));
-        for (let d = depthSteps; d > 0; d--) {
-            renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY + d, radius, arcStrength, (ch) => {
-                targetCtx.lineJoin = 'round';
-                targetCtx.strokeStyle = style.block;
-                targetCtx.lineWidth = Math.max(5, fontSize * 0.16);
-                targetCtx.strokeText(ch, 0, 0);
-                targetCtx.fillStyle = style.block;
-                targetCtx.fillText(ch, 0, 0);
-            });
+        if (isTestOrder) {
+            const fileName = await generatePrintReadyFile(ordersDB[merchant_oid]);
+            ordersDB[merchant_oid].status = 'BASKIYA_HAZIR_TEST';
+            ordersDB[merchant_oid].fileName = fileName;
+            saveOrders();
+            return res.json({ status: 'test_success', orderId: merchant_oid, fileName });
         }
 
-        // 3. Parlak dış kontur (Altın veya Beyaz kabartma çerçevesi)
-        renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY, radius, arcStrength, (ch) => {
-            targetCtx.lineJoin = 'round';
-            targetCtx.strokeStyle = style.rim;
-            targetCtx.lineWidth = Math.max(6, fontSize * 0.15);
-            targetCtx.strokeText(ch, 0, 0);
+        const payment_amount = Math.round(price * 100);
+        const user_ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
+        const user_basket = Buffer.from(JSON.stringify([
+            [`Kişiye Özel ${theme.toUpperCase()} Afiş (${size} cm - ${name})`, price.toString(), 1]
+        ])).toString('base64');
+
+        const hashSTR = `${PAYTR_CONFIG.merchant_id}${user_ip}${merchant_oid}${customerEmail}${payment_amount}${user_basket}00TL${PAYTR_CONFIG.test_mode}`;
+        const paytr_token = crypto.createHmac('sha256', PAYTR_CONFIG.merchant_key)
+            .update(hashSTR + PAYTR_CONFIG.merchant_salt)
+            .digest('base64');
+
+        const formData = new URLSearchParams({
+            merchant_id: PAYTR_CONFIG.merchant_id,
+            user_ip,
+            merchant_oid,
+            email: customerEmail,
+            payment_amount: payment_amount.toString(),
+            paytr_token,
+            user_basket,
+            debug_on: '1',
+            no_installment: '0',
+            max_installment: '0',
+            user_name: customerName,
+            user_address: customerAddress,
+            user_phone: customerPhone,
+            merchant_ok_url: PAYTR_CONFIG.ok_url,
+            merchant_fail_url: PAYTR_CONFIG.fail_url,
+            timeout_limit: '30',
+            currency: 'TL',
+            test_mode: PAYTR_CONFIG.test_mode
         });
 
-        // 4. İç ince koyu ayırıcı çizgi (harfin keskinliğini artırır)
-        renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY, radius, arcStrength, (ch) => {
-            targetCtx.lineJoin = 'round';
-            targetCtx.strokeStyle = style.block;
-            targetCtx.lineWidth = Math.max(2, fontSize * 0.05);
-            targetCtx.strokeText(ch, 0, 0);
+        const response = await fetch('https://www.paytr.com/odeme/api/get-token', {
+            method: 'POST',
+            body: formData
         });
+        const result = await response.json();
 
-        // 5. Ön yüz 3D bombeli metalik/inci dolgu + üst parlama
-        renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY, radius, arcStrength, (ch) => {
-            const grad = targetCtx.createLinearGradient(0, -fontSize * 0.55, 0, fontSize * 0.55);
-            grad.addColorStop(0.0, style.top);
-            grad.addColorStop(0.42, style.mid);
-            grad.addColorStop(0.85, style.bot);
-            grad.addColorStop(1.0, style.mid);
-            targetCtx.fillStyle = grad;
-            targetCtx.fillText(ch, 0, 0);
-        });
-
-        targetCtx.restore();
-    }
-
-    function draw() {
-        const isHoriz = state.orientation === 'horizontal';
-        canvas.width = isHoriz ? 1200 : 900;
-        canvas.height = isHoriz ? 900 : 1200;
-
-        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-
-        const cfg = LAYOUTS[state.theme][state.orientation];
-        const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
-        const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
-        const age = document.getElementById('inpAge').value;
-        const cx = canvas.width / 2;
-
-        // Fotoğraf (Kurdelenin arkasında kalacak şekilde kırpılır)
-        if (state.photoImg) {
-            const r = canvas.width * cfg.photoR;
-            const px = canvas.width * cfg.photoX;
-            const py = canvas.height * cfg.photoY;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(px, py, r * 0.965, 0, Math.PI * 2);
-            if (state.theme === 'mavi-prens') {
-                ctx.rect(px - r, py - r, r * 2, r * 1.62);
-            }
-            ctx.clip();
-
-            const imgRatio = state.photoImg.width / state.photoImg.height;
-            let drawW = r * 2, drawH = r * 2;
-            if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
-            ctx.drawImage(state.photoImg, px - drawW / 2, py - drawH / 2, drawW, drawH);
-            ctx.restore();
+        if (result.status === 'success') {
+            res.json({ status: 'success', token: result.token, orderId: merchant_oid });
         } else {
-            const r = canvas.width * cfg.photoR;
-            const px = canvas.width * cfg.photoX;
-            const py = canvas.height * cfg.photoY;
-            ctx.save();
-            ctx.beginPath(); ctx.arc(px, py, r * 0.90, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill();
-            ctx.fillStyle = '#0A2463';
-            ctx.font = `700 ${Math.floor(r * 0.16)}px 'Plus Jakarta Sans', sans-serif`;
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('FOTOĞRAFINIZ', px, py - r * 0.08);
-            ctx.fillText('BURAYA GELİR', px, py + r * 0.12);
-            ctx.restore();
+            res.status(400).json({ status: 'error', reason: result.reason });
         }
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
 
-        if (slogan) {
-            const sSize = fitFontSize(ctx, slogan, Math.floor(canvas.width * cfg.sloganMaxH), canvas.width * cfg.sloganMaxW);
-            drawEmbossed3D(ctx, slogan, cx, canvas.height * cfg.sloganY, sSize, cfg.sloganArc, cfg.sloganStyle);
+app.post('/api/paytr-callback', async (req, res) => {
+    const { merchant_oid, status, total_amount, hash } = req.body;
+    const calculatedHash = crypto.createHmac('sha256', PAYTR_CONFIG.merchant_key)
+        .update(merchant_oid + PAYTR_CONFIG.merchant_salt + status + total_amount)
+        .digest('base64');
+
+    if (hash !== calculatedHash) return res.status(403).send('PAYTR notification failed: bad hash');
+
+    if (status === 'success' && ordersDB[merchant_oid]) {
+        const order = ordersDB[merchant_oid];
+        if (order.status !== 'BASKIYA_HAZIR') {
+            const fileName = await generatePrintReadyFile(order);
+            order.status = 'BASKIYA_HAZIR';
+            order.fileName = fileName;
+            saveOrders();
         }
+    }
+    res.send('OK');
+});
 
-        if (name) {
-            const nSize = fitFontSize(ctx, name, Math.floor(canvas.width * cfg.nameMaxH), canvas.width * cfg.nameMaxW);
-            drawEmbossed3D(ctx, name, cx, canvas.height * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
-        }
+app.get('/yonetim', (req, res) => {
+    const list = Object.values(ordersDB).reverse();
+    const rows = list.map(o => `
+        <tr>
+            <td><strong>${o.merchant_oid}</strong><br><small>${o.date}</small></td>
+            <td>${o.theme.toUpperCase()} (${o.size} cm - ${o.orientation === 'horizontal' ? 'Yatay' : 'Dikey'})<br>
+                <strong>Slogan:</strong> ${o.slogan} | <strong>İsim:</strong> ${o.name} | <strong>Yaş:</strong> ${o.age}</td>
+            <td>${o.customerName}<br>${o.customerPhone}<br><small>${o.customerAddress}</small></td>
+            <td><strong>${o.price} TL</strong><br>${o.status}</td>
+            <td>${o.fileName ? `<a href="/baski-dosyalari/${o.fileName}" download style="background:#E6007E;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">Baskı Dosyasını İndir</a>` : 'Ödeme Bekleniyor'}</td>
+        </tr>
+    `).join('');
 
-        // Orijinal görseldeki gibi beyaz daire olmadan dev 3D altın-lacivert kabartma rakam
-        drawEmbossed3D(ctx, age, cx, canvas.height * cfg.ageY, Math.floor(canvas.width * cfg.ageSize), 0, cfg.ageStyle);
-        drawEmbossed3D(ctx, cfg.ageSub, cx, canvas.height * cfg.ageSubY, Math.floor(canvas.width * cfg.ageSubSize), 0.08, cfg.nameStyle);
+    res.send(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Premium Afiş Yönetim Paneli</title>
+    <style>body{font-family:sans-serif;padding:24px;background:#f8f9fa}table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08)}th,td{padding:14px;border-bottom:1px solid #eee;text-align:left;font-size:14px}th{background:#1E193B;color:#fff}</style>
+    </head><body><h2>Premium Afiş - Gelen Siparişler ve Baskı Merkezi</h2><table><tr><th>Sipariş No</th><th>Afiş Detayı</th><th>Müşteri & Kargo</th><th>Tutar / Durum</th><th>Baskı Dosyası</th></tr>${rows || '<tr><td colspan="5">Henüz sipariş yok.</td></tr>'}</table></body></html>`);
+});
 
-        // Önizleme Filigranı
+async function generatePrintReadyFile(order) {
+    const isHoriz = order.orientation === 'horizontal';
+    const width = isHoriz ? 4800 : 3600;
+    const height = isHoriz ? 3600 : 4800;
+
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    const orientationKey = isHoriz ? 'yatay' : 'dikey';
+    let templatePath = path.join(__dirname, 'yuksek_cozunurluk_sablonlar', `${order.theme}-${orientationKey}.jpg`);
+    if (!fs.existsSync(templatePath)) {
+        templatePath = path.join(__dirname, 'public', 'sablonlar', `${order.theme}-${orientationKey}.jpg`);
+    }
+
+    // 1. Zemin şablonu
+    const bgImg = await loadImage(templatePath);
+    ctx.drawImage(bgImg, 0, 0, width, height);
+
+    // 2. Müşteri fotoğrafı (Yuvarlak çerçeve içinde + alt kısmı kurdele yayının arkasında)
+    if (order.photoBase64) {
+        const pCfg = (PHOTO_AREAS[order.theme] || PHOTO_AREAS['mavi-prens'])[order.orientation];
+        const userPhoto = await loadImage(order.photoBase64);
+        const r = width * pCfg.r;
+        const px = width * pCfg.x;
+        const py = height * pCfg.y;
         ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(-28 * Math.PI / 180);
-        ctx.font = "bold 38px sans-serif";
-        ctx.fillStyle = "rgba(30, 25, 59, 0.13)";
-        ctx.textAlign = "center";
-        for (let y = -canvas.height; y < canvas.height; y += 160) {
-            for (let x = -canvas.width; x < canvas.width; x += 440) {
-                ctx.fillText("ÖNİZLEME • PREMİUM AFİŞ", x, y);
-            }
+        ctx.beginPath();
+        ctx.arc(px, py, r * 0.965, 0, Math.PI * 2);
+        ctx.clip();
+        if (order.theme === 'mavi-prens') {
+            ctx.beginPath();
+            ctx.arc(px, py + r * 3.15, r * 3.82, Math.PI * 1.25, Math.PI * 1.75);
+            ctx.lineTo(px + r * 2, py - r * 2);
+            ctx.lineTo(px - r * 2, py - r * 2);
+            ctx.closePath();
+            ctx.clip();
         }
+        const imgRatio = userPhoto.width / userPhoto.height;
+        let drawW = r * 2, drawH = r * 2;
+        if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
+        ctx.drawImage(userPhoto, px - drawW / 2, py - drawH / 2, drawW, drawH);
         ctx.restore();
     }
 
-    document.querySelectorAll('#themes .pill').forEach(b => {
-        if (b.dataset.t === state.theme) { document.querySelector('#themes .active')?.classList.remove('active'); b.classList.add('active'); }
-        b.onclick = () => {
-            document.querySelector('#themes .active').classList.remove('active');
-            b.classList.add('active');
-            state.theme = b.dataset.t;
-            if (!state.userTypedName) {
-                document.getElementById('inpName').value = LAYOUTS[state.theme].defaultName;
-            }
-            loadTemplate();
-        };
-    });
-    document.querySelectorAll('.orient-btn').forEach(b => {
-        b.onclick = () => { document.querySelector('.orient-btn.active').classList.remove('active'); b.classList.add('active'); state.orientation = b.dataset.o; loadTemplate(); };
-    });
-    document.querySelectorAll('.size-box').forEach(b => {
-        b.onclick = () => { document.querySelector('.size-box.active').classList.remove('active'); b.classList.add('active'); state.size = b.dataset.s; state.price = b.dataset.p; document.getElementById('lblPrice').textContent = state.price + ' TL'; };
-    });
-    document.getElementById('inpSlogan').oninput = draw;
-    document.getElementById('inpName').oninput = () => { state.userTypedName = true; draw(); };
-    document.getElementById('inpAge').onchange = draw;
-    document.getElementById('inpPhoto').onchange = (e) => {
-        const f = e.target.files[0]; if (!f) return;
-        const r = new FileReader();
-        r.onload = (ev) => { state.photoBase64 = ev.target.result; const img = new Image(); img.onload = () => { state.photoImg = img; draw(); }; img.src = ev.target.result; };
-        r.readAsDataURL(f);
-    };
-
-    function openCheckout(isTest) {
-        state.isTest = isTest;
-        document.getElementById('modalTitle').textContent = isTest ? 'Robot Baskı Testi' : 'Teslimat Bilgileri ve PayTR Ödeme';
-        document.getElementById('btnSubmitOrder').textContent = isTest ? 'Baskı Dosyasını Şimdi Üret' : `PayTR ile ${state.price} TL Öde`;
-        document.getElementById('checkoutModal').style.display = 'flex';
+    // 3. Yüksek çözünürlüklü 3D altın/inci kabartma yazı katmanı
+    if (order.textLayerBase64) {
+        const textLayer = await loadImage(order.textLayerBase64);
+        ctx.drawImage(textLayer, 0, 0, width, height);
     }
 
-    function renderHighResTextLayer() {
-        const isHoriz = state.orientation === 'horizontal';
-        const hiCanvas = document.createElement('canvas');
-        hiCanvas.width = isHoriz ? 4800 : 3600;
-        hiCanvas.height = isHoriz ? 3600 : 4800;
-        const hCtx = hiCanvas.getContext('2d');
+    const safeName = (order.name || 'ISIMSIZ').toLocaleUpperCase('tr-TR').replace(/[^a-zA-Z0-9ĞÜŞİÖÇğüşıöç]/g, '_');
+    const fileName = `${order.merchant_oid}__${safeName}__${order.age}YAS__${order.theme.toUpperCase()}__${order.size}cm_${orientationKey.toUpperCase()}.jpg`;
+    fs.writeFileSync(path.join(outputDir, fileName), canvas.toBuffer('image/jpeg', { quality: 0.96 }));
+    return fileName;
+}
 
-        const cfg = LAYOUTS[state.theme][state.orientation];
-        const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
-        const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
-        const age = document.getElementById('inpAge').value;
-        const cx = hiCanvas.width / 2;
-
-        if (slogan) {
-            const sSize = fitFontSize(hCtx, slogan, Math.floor(hiCanvas.width * cfg.sloganMaxH), hiCanvas.width * cfg.sloganMaxW);
-            drawEmbossed3D(hCtx, slogan, cx, hiCanvas.height * cfg.sloganY, sSize, cfg.sloganArc, cfg.sloganStyle);
-        }
-        if (name) {
-            const nSize = fitFontSize(hCtx, name, Math.floor(hiCanvas.width * cfg.nameMaxH), hiCanvas.width * cfg.nameMaxW);
-            drawEmbossed3D(hCtx, name, cx, hiCanvas.height * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
-        }
-
-        drawEmbossed3D(hCtx, age, cx, hiCanvas.height * cfg.ageY, Math.floor(hiCanvas.width * cfg.ageSize), 0, cfg.ageStyle);
-        drawEmbossed3D(hCtx, cfg.ageSub, cx, hiCanvas.height * cfg.ageSubY, Math.floor(hiCanvas.width * cfg.ageSubSize), 0.08, cfg.nameStyle);
-
-        return hiCanvas.toDataURL('image/png');
-    }
-
-    async function submitOrder() {
-        const textLayerBase64 = renderHighResTextLayer();
-        const payload = {
-            slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
-            name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
-            age: document.getElementById('inpAge').value,
-            theme: state.theme,
-            orientation: state.orientation,
-            size: state.size,
-            price: state.price,
-            customerName: document.getElementById('custName').value || 'Test Müşteri',
-            customerPhone: document.getElementById('custPhone').value || '05000000000',
-            customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
-            customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
-            photoBase64: state.photoBase64,
-            textLayerBase64: textLayerBase64,
-            isTestOrder: state.isTest
-        };
-
-        try {
-            const res = await fetch('/api/siparis-olustur', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.status === 'test_success') {
-                alert(`ROBOT BAŞARIYLA ÇALIŞTI!\n\nBaskı dosyanız üretildi:\n${data.fileName}`);
-                document.getElementById('checkoutModal').style.display = 'none';
-            } else if (data.status === 'success') {
-                document.getElementById('paytrBox').innerHTML = `<iframe src="https://www.paytr.com/odeme/guvenli/${data.token}" frameborder="0" style="width:100%; height:420px;"></iframe>`;
-            } else {
-                alert('Bilgi: ' + (data.reason || data.message));
-            }
-        } catch (e) {
-            alert('Hata: ' + e.message);
-        }
-    }
-
-    loadTemplate();
-</script>
-</body>
-</html>
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Premium Afiş Baskı Robotu ${PORT} portunda çalışıyor.`);
+});
