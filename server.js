@@ -28,13 +28,69 @@ function saveOrders() {
     fs.writeFileSync(ordersFile, JSON.stringify(ordersDB, null, 2), 'utf8');
 }
 
+// Bilinen temaların özel fotoğraf merkezleri (Klasöre yeni atılan tüm şablonlar otomatik 'default' kalıbını kullanır)
 const PHOTO_AREAS = {
-    'mavi-prens': { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.170 } },
-    'prenses': { horizontal: { x: 0.18, y: 0.36, r: 0.10 }, vertical: { x: 0.50, y: 0.48, r: 0.11 } },
-    'safari': { horizontal: { x: 0.50, y: 0.48, r: 0.15 }, vertical: { x: 0.50, y: 0.46, r: 0.17 } },
-    'yaris': { horizontal: { x: 0.50, y: 0.48, r: 0.145 }, vertical: { x: 0.50, y: 0.46, r: 0.17 } },
+    'default':      { horizontal: { x: 0.50, y: 0.42, r: 0.145 }, vertical: { x: 0.50, y: 0.37, r: 0.165 } },
+    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.142 }, vertical: { x: 0.50, y: 0.365, r: 0.165 } },
+    'prenses':      { horizontal: { x: 0.18, y: 0.36, r: 0.10 }, vertical: { x: 0.50, y: 0.48, r: 0.11 } },
+    'safari':       { horizontal: { x: 0.50, y: 0.48, r: 0.145 }, vertical: { x: 0.50, y: 0.46, r: 0.165 } },
+    'yaris':        { horizontal: { x: 0.50, y: 0.48, r: 0.142 }, vertical: { x: 0.50, y: 0.46, r: 0.165 } },
     'hayvan-balon': { horizontal: { x: 0.84, y: 0.22, r: 0.095 }, vertical: { x: 0.50, y: 0.35, r: 0.10 } }
 };
+
+const LABEL_MAP = {
+    'mavi-prens': 'Mavi Prens',
+    'prenses': 'Pembe Prenses',
+    'safari': 'Orman Safari',
+    'yaris': 'Yarış Arabaları',
+    'hayvan-balon': 'Hayvan Balonlar'
+};
+
+// Klasördeki tüm şablonları otomatik tarayıp siteye gönderen uç nokta (100 şablon da atsanız otomatik tanır)
+app.get('/api/sablonlar', (req, res) => {
+    const dir = path.join(__dirname, 'public', 'sablonlar');
+    if (!fs.existsSync(dir)) return res.json([]);
+    const files = fs.readdirSync(dir);
+    const map = {};
+
+    files.forEach(f => {
+        const match = f.match(/^(.+)-(yatay|dikey)\.(jpg|jpeg|png)$/i);
+        if (match) {
+            const slug = match[1].toLowerCase();
+            const orient = match[2].toLowerCase() === 'yatay' ? 'horizontal' : 'vertical';
+            const ext = match[3].toLowerCase();
+            if (!map[slug]) {
+                const autoLabel = LABEL_MAP[slug] || slug.split('-').map(w => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1)).join(' ');
+                map[slug] = { id: slug, label: autoLabel, files: {} };
+            }
+            // PNG (şeffaf çerçeve) varsa JPG'ye göre öncelikli kullan
+            if (!map[slug].files[orient] || ext === 'png') {
+                map[slug].files[orient] = `sablonlar/${f}`;
+            }
+        }
+    });
+
+    // Mevcut 5 ana temayı en başta tut, yeni eklenenleri yanına diz
+    const priority = ['mavi-prens', 'prenses', 'safari', 'yaris', 'hayvan-balon'];
+    const list = Object.values(map).sort((a, b) => {
+        const ia = priority.indexOf(a.id);
+        const ib = priority.indexOf(b.id);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.label.localeCompare(b.label, 'tr');
+    });
+
+    res.json(list);
+});
+
+function findTemplateFile(baseDir, theme, orientationKey) {
+    for (const ext of ['png', 'jpg', 'jpeg']) {
+        const p = path.join(baseDir, `${theme}-${orientationKey}.${ext}`);
+        if (fs.existsSync(p)) return { filePath: p, isPng: ext === 'png' };
+    }
+    return null;
+}
 
 app.post('/api/siparis-olustur', async (req, res) => {
     try {
@@ -157,42 +213,41 @@ async function generatePrintReadyFile(order) {
     const ctx = canvas.getContext('2d');
 
     const orientationKey = isHoriz ? 'yatay' : 'dikey';
-    let templatePath = path.join(__dirname, 'yuksek_cozunurluk_sablonlar', `${order.theme}-${orientationKey}.jpg`);
-    if (!fs.existsSync(templatePath)) {
-        templatePath = path.join(__dirname, 'public', 'sablonlar', `${order.theme}-${orientationKey}.jpg`);
+    let tpl = findTemplateFile(path.join(__dirname, 'yuksek_cozunurluk_sablonlar'), order.theme, orientationKey);
+    if (!tpl) {
+        tpl = findTemplateFile(path.join(__dirname, 'public', 'sablonlar'), order.theme, orientationKey);
     }
 
-    // 1. Zemin şablonu
-    const bgImg = await loadImage(templatePath);
-    ctx.drawImage(bgImg, 0, 0, width, height);
+    const bgImg = await loadImage(tpl.filePath);
+    const pCfg = (PHOTO_AREAS[order.theme] || PHOTO_AREAS['default'])[order.orientation];
 
-    // 2. Müşteri fotoğrafı (Yuvarlak çerçeve içinde + alt kısmı kurdele yayının arkasında)
-    if (order.photoBase64) {
-        const pCfg = (PHOTO_AREAS[order.theme] || PHOTO_AREAS['mavi-prens'])[order.orientation];
+    const drawUserPhoto = async () => {
+        if (!order.photoBase64) return;
         const userPhoto = await loadImage(order.photoBase64);
         const r = width * pCfg.r;
         const px = width * pCfg.x;
         const py = height * pCfg.y;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(px, py, r * 0.965, 0, Math.PI * 2);
+        ctx.arc(px, py, tpl.isPng ? r * 1.15 : r * 0.94, 0, Math.PI * 2);
         ctx.clip();
-        if (order.theme === 'mavi-prens') {
-            ctx.beginPath();
-            ctx.arc(px, py + r * 3.15, r * 3.82, Math.PI * 1.25, Math.PI * 1.75);
-            ctx.lineTo(px + r * 2, py - r * 2);
-            ctx.lineTo(px - r * 2, py - r * 2);
-            ctx.closePath();
-            ctx.clip();
-        }
         const imgRatio = userPhoto.width / userPhoto.height;
-        let drawW = r * 2, drawH = r * 2;
+        let drawW = r * 2.1, drawH = r * 2.1;
         if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
         ctx.drawImage(userPhoto, px - drawW / 2, py - drawH / 2, drawW, drawH);
         ctx.restore();
+    };
+
+    // Şablon PNG (şeffaf delikli) ise fotoğrafı EN ARKAYA koyar (kurdele taşması sıfır olur)
+    if (tpl.isPng) {
+        await drawUserPhoto();
+        ctx.drawImage(bgImg, 0, 0, width, height);
+    } else {
+        ctx.drawImage(bgImg, 0, 0, width, height);
+        await drawUserPhoto();
     }
 
-    // 3. Yüksek çözünürlüklü 3D altın/inci kabartma yazı katmanı
+    // 3D altın/inci kabartmalı yazı katmanı
     if (order.textLayerBase64) {
         const textLayer = await loadImage(order.textLayerBase64);
         ctx.drawImage(textLayer, 0, 0, width, height);
