@@ -36,7 +36,7 @@ function saveLayouts() {
 }
 
 const DEFAULT_PHOTO_AREAS = {
-    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.212 } },
+    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.372, r: 0.192 } },
     'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.212 } },
     'prenses':      { horizontal: { x: 0.18, y: 0.360, r: 0.115 }, vertical: { x: 0.50, y: 0.480, r: 0.125 } },
     'safari':       { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
