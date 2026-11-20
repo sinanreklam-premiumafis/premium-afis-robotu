@@ -166,8 +166,7 @@ async function generatePrintReadyFile(order) {
     const bgImg = await loadImage(templatePath);
     ctx.drawImage(bgImg, 0, 0, width, height);
 
-    // 2. Müşteri fotoğrafı
-   // 2. Müşteri fotoğrafı (Kurdele arkasında ve tam çerçeve içinde)
+    // 2. Müşteri fotoğrafı (Yuvarlak çerçeve içinde + alt kısmı kurdele yayının arkasında)
     if (order.photoBase64) {
         const pCfg = (PHOTO_AREAS[order.theme] || PHOTO_AREAS['mavi-prens'])[order.orientation];
         const userPhoto = await loadImage(order.photoBase64);
@@ -177,11 +176,15 @@ async function generatePrintReadyFile(order) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(px, py, r * 0.965, 0, Math.PI * 2);
-        // Mavi Prens temasında fotoğrafın alt kısmını kurdele arkasında bırak
-        if (order.theme === 'mavi-prens') {
-            ctx.rect(px - r, py - r, r * 2, r * 1.62);
-        }
         ctx.clip();
+        if (order.theme === 'mavi-prens') {
+            ctx.beginPath();
+            ctx.arc(px, py + r * 3.15, r * 3.82, Math.PI * 1.25, Math.PI * 1.75);
+            ctx.lineTo(px + r * 2, py - r * 2);
+            ctx.lineTo(px - r * 2, py - r * 2);
+            ctx.closePath();
+            ctx.clip();
+        }
         const imgRatio = userPhoto.width / userPhoto.height;
         let drawW = r * 2, drawH = r * 2;
         if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
@@ -189,7 +192,7 @@ async function generatePrintReadyFile(order) {
         ctx.restore();
     }
 
-    // 3. Müşteri ekranında yüksek çözünürlüklü üretilen 3D altın kabartmalı yazı katmanı
+    // 3. Yüksek çözünürlüklü 3D altın/inci kabartma yazı katmanı
     if (order.textLayerBase64) {
         const textLayer = await loadImage(order.textLayerBase64);
         ctx.drawImage(textLayer, 0, 0, width, height);
