@@ -1,0 +1,16 @@
+
+
+
+{
+  "name": "premium-afis-robotu",
+  "version": "1.0.0",
+  "description": "Otonom Kisiye Ozel Afis ve Baski Robotu",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "canvas": "^2.11.2",
+    "express": "^4.18.2"
+  }
+}
