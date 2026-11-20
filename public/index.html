@@ -16,7 +16,6 @@
         .brand span { color: var(--pink); }
         .sub { color: #7B2869; font-size: 14px; font-weight: 600; }
 
-        /* Görsel Kalibrasyon Çubuğu (?kalibre=1 ile açılır) */
         .cal-bar { display: none; background: #FFF8E1; border: 2px solid #FFB300; border-radius: 16px; padding: 14px 18px; margin-bottom: 18px; box-shadow: 0 6px 20px rgba(255,179,0,0.18); }
         .cal-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
         .cal-head strong { color: #E65100; font-size: 15px; }
@@ -83,7 +82,6 @@
         <div class="sub">Kişiye Özel Doğum Günü Afişleri • Anında Tasarla & Sipariş Ver</div>
     </header>
 
-    <!-- Görsel Sürükle-Bırak Kalibrasyon Paneli (?kalibre=1) -->
     <div class="cal-bar" id="calBar">
         <div class="cal-head">
             <strong>Görsel Şablon Kalibratörü (Afiş üzerindeki öğeyi fareyle sürükleyip yerine oturtun)</strong>
@@ -205,26 +203,27 @@
         ageDataList.appendChild(opt);
     }
 
+    // Pozitif arc (+0.20) yukarı kemer (gökkuşağı) yapar ve harf merkezini sabit tutar
     const DEFAULT_LAYOUT = {
         defaultName: 'YUSUF MAHİR',
         horizontal: {
-            sloganX: 0.50, sloganY: 0.145, sloganArc: 0.22, sloganMaxW: 0.36, sloganMaxH: 0.048,
-            nameX: 0.50, nameY: 0.565, nameArc: 0.16, nameMaxW: 0.30, nameMaxH: 0.052,
-            ageX: 0.50, ageY: 0.768, ageSize: 0.125,
-            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.878, ageSubSize: 0.035, ageSubArc: -0.08,
+            sloganX: 0.50, sloganY: 0.122, sloganArc: 0.22, sloganMaxW: 0.36, sloganMaxH: 0.048,
+            nameX: 0.50, nameY: 0.625, nameArc: 0.14, nameMaxW: 0.30, nameMaxH: 0.052,
+            ageX: 0.50, ageY: 0.772, ageSize: 0.125,
+            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.885, ageSubSize: 0.035, ageSubArc: 0.08,
             drawSubRibbon: false,
-            photoX: 0.50, photoY: 0.372, photoR: 0.192,
+            photoX: 0.50, photoY: 0.415, photoR: 0.145,
             sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
             nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
             ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
         },
         vertical: {
-            sloganX: 0.50, sloganY: 0.128, sloganArc: -0.20, sloganMaxW: 0.50, sloganMaxH: 0.054,
-            nameX: 0.50, nameY: 0.545, nameArc: -0.12, nameMaxW: 0.42, nameMaxH: 0.062,
+            sloganX: 0.50, sloganY: 0.132, sloganArc: 0.22, sloganMaxW: 0.50, sloganMaxH: 0.054,
+            nameX: 0.50, nameY: 0.562, nameArc: 0.15, nameMaxW: 0.42, nameMaxH: 0.062,
             ageX: 0.50, ageY: 0.715, ageSize: 0.165,
-            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.838, ageSubSize: 0.048, ageSubArc: -0.06,
+            ageSub: 'YAŞ', ageSubX: 0.50, ageSubY: 0.838, ageSubSize: 0.048, ageSubArc: 0.06,
             drawSubRibbon: true,
-            photoX: 0.50, photoY: 0.365, photoR: 0.212,
+            photoX: 0.50, photoY: 0.372, photoR: 0.192,
             sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
             nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
             ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
@@ -555,14 +554,12 @@
         bgImg.src = customSrc || `sablonlar/${state.theme}-${dir}.jpg`;
     }
 
-    // Dikey afişte YAŞ yazısının altına orijinaliyle uyumlu 3D altın çerçeveli mavi kurdele çizer
     function draw3DSubRibbon(targetCtx, cx, cy, w, h) {
         targetCtx.save();
         targetCtx.shadowColor = 'rgba(0,0,0,0.45)';
         targetCtx.shadowBlur = h * 0.25;
         targetCtx.shadowOffsetY = h * 0.12;
 
-        // Sol ve sağ kuyruklar
         const tailW = w * 0.22;
         const tailH = h * 0.78;
         const drawTail = (dir) => {
@@ -584,7 +581,6 @@
         drawTail(-1);
         drawTail(1);
 
-        // Ana kavisli kurdele gövdesi
         const arch = h * 0.18;
         targetCtx.beginPath();
         targetCtx.moveTo(cx - w / 2, cy - h / 2 + arch);
@@ -618,6 +614,7 @@
         return Math.max(18, size);
     }
 
+    // Düzeltilmiş Kavis Motoru: Pozitif değer yukarı kemer (gökkuşağı) yapar, orta noktayı sabit tutar
     function renderArcChars(targetCtx, chars, widths, totalWidth, cx, cy, radius, arcStrength, drawFn) {
         let currentX = -totalWidth / 2;
         for (let i = 0; i < chars.length; i++) {
@@ -650,7 +647,7 @@
         const chars = text.split('');
         const widths = chars.map(c => targetCtx.measureText(c).width * 1.04);
         const totalWidth = widths.reduce((a, b) => a + b, 0);
-        const radius = Math.abs(arcStrength) > 0.001 ? (totalWidth / (arcStrength * Math.PI)) : 999999;
+        const radius = Math.abs(arcStrength) > 0.001 ? (totalWidth / (Math.abs(arcStrength) * Math.PI)) : 999999;
 
         renderArcChars(targetCtx, chars, widths, totalWidth, centerX, centerY + fontSize * 0.22, radius, arcStrength, (ch) => {
             targetCtx.shadowColor = 'rgba(0,0,0,0.55)';
@@ -850,93 +847,4 @@
     document.querySelectorAll('.orient-btn').forEach(b => {
         b.onclick = () => { document.querySelector('.orient-btn.active').classList.remove('active'); b.classList.add('active'); state.orientation = b.dataset.o; loadTemplate(); };
     });
-    document.querySelectorAll('.size-box').forEach(b => {
-        b.onclick = () => { document.querySelector('.size-box.active').classList.remove('active'); b.classList.add('active'); state.size = b.dataset.s; state.price = b.dataset.p; document.getElementById('lblPrice').textContent = state.price + ' TL'; };
-    });
-    document.getElementById('inpSlogan').oninput = draw;
-    document.getElementById('inpName').oninput = () => { state.userTypedName = true; draw(); };
-    document.getElementById('inpAge').oninput = draw;
-    document.getElementById('inpAge').onfocus = function() { this.select(); };
-
-    document.getElementById('inpPhoto').onchange = (e) => {
-        const f = e.target.files[0]; if (!f) return;
-        const r = new FileReader();
-        r.onload = (ev) => {
-            state.photoBase64 = ev.target.result;
-            const img = new Image();
-            img.onload = () => {
-                state.photoImg = img;
-                resetPhotoTransform();
-                canvas.classList.add('draggable');
-                document.getElementById('photoTools').style.display = 'flex';
-                document.getElementById('lockNote').textContent = 'İpucu: Fotoğrafı fare veya parmakla sürükleyip kaydırabilir, çubuktan büyütebilirsiniz.';
-                draw();
-            };
-            img.src = ev.target.result;
-        };
-        r.readAsDataURL(f);
-    };
-
-    function openCheckout(isTest) {
-        state.isTest = isTest;
-        document.getElementById('modalTitle').textContent = isTest ? 'Robot Baskı Testi' : 'Teslimat Bilgileri ve PayTR Ödeme';
-        document.getElementById('btnSubmitOrder').textContent = isTest ? 'Baskı Dosyasını Şimdi Üret' : `PayTR ile ${state.price} TL Öde`;
-        document.getElementById('checkoutModal').style.display = 'flex';
-    }
-
-    function renderHighResTextLayer() {
-        const isHoriz = state.orientation === 'horizontal';
-        const hiCanvas = document.createElement('canvas');
-        hiCanvas.width = isHoriz ? 4800 : 3600;
-        hiCanvas.height = isHoriz ? 3600 : 4800;
-        const hCtx = hiCanvas.getContext('2d');
-
-        const cfg = getCfg();
-        const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
-        const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
-        const age = document.getElementById('inpAge').value.trim() || '1';
-
-        renderAllOverlays(hCtx, hiCanvas.width, hiCanvas.height, cfg, slogan, name, age);
-        return hiCanvas.toDataURL('image/png');
-    }
-
-    async function submitOrder() {
-        const textLayerBase64 = renderHighResTextLayer();
-        const payload = {
-            slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
-            name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
-            age: document.getElementById('inpAge').value.trim() || '1',
-            theme: state.theme,
-            orientation: state.orientation,
-            size: state.size,
-            price: state.price,
-            customerName: document.getElementById('custName').value || 'Test Müşteri',
-            customerPhone: document.getElementById('custPhone').value || '05000000000',
-            customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
-            customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
-            photoBase64: state.photoBase64,
-            photoTransform: state.photoTransform,
-            textLayerBase64: textLayerBase64,
-            isTestOrder: state.isTest
-        };
-
-        try {
-            const res = await fetch('/api/siparis-olustur', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.status === 'test_success') {
-                alert(`ROBOT BAŞARIYLA ÇALIŞTI!\n\nBaskı dosyanız üretildi:\n${data.fileName}`);
-                document.getElementById('checkoutModal').style.display = 'none';
-            } else if (data.status === 'success') {
-                document.getElementById('paytrBox').innerHTML = `<iframe src="https://www.paytr.com/odeme/guvenli/${data.token}" frameborder="0" style="width:100%; height:420px;"></iframe>`;
-            } else {
-                alert('Bilgi: ' + (data.reason || data.message));
-            }
-        } catch (e) {
-            alert('Hata: ' + e.message);
-        }
-    }
-
-    loadTemplate();
-</script>
-</body>
-</html>
+    document.querySelectorAll('.size-box
