@@ -88,7 +88,6 @@ function findTemplateFile(baseDir, theme, orientationKey) {
     return null;
 }
 
-// Şablonun ortasındaki açık renkli fotoğraf penceresini otomatik algılayıp şeffaflaştıran akıllı filtre
 function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
     const x0 = Math.max(0, Math.floor(cx - maxR));
     const y0 = Math.max(0, Math.floor(cy - maxR));
@@ -97,7 +96,6 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
     const imgData = ctx.getImageData(x0, y0, w, h);
     const data = imgData.data;
 
-    // Merkez noktanın rengini referans al (açık mavi/beyaz iç dolgu)
     const midX = Math.floor(cx - x0);
     const midY = Math.floor(cy - y0);
     const midIdx = (midY * w + midX) * 4;
@@ -107,7 +105,6 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
     const queue = [midY * w + midX];
     visited[midY * w + midX] = 1;
 
-    // Merkezden dışa doğru altın çerçeve ve koyu mavi kurdele sınırına kadar yayıl
     let head = 0;
     while (head < queue.length) {
         const idx = queue[head++];
@@ -118,7 +115,7 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
         if (dx * dx + dy * dy > maxR * maxR) continue;
 
         const p4 = idx * 4;
-        data[p4 + 3] = 0; // İç dolguyu şeffaf yap
+        data[p4 + 3] = 0;
 
         const neighbors = [
             py > 0 ? idx - w : -1,
@@ -132,13 +129,11 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
                 visited[n] = 1;
                 const n4 = n * 4;
                 const r = data[n4], g = data[n4 + 1], b = data[n4 + 2];
-                // Açık iç dolgu tonundaysa devam et; altın çerçeve veya koyu kurdeleye çarpınca dur
                 const brightness = (r + g + b) / 3;
                 const diff = Math.abs(r - refR) + Math.abs(g - refG) + Math.abs(b - refB);
                 if (brightness > 165 && diff < 140) {
                     queue.push(n);
                 } else {
-                    // Kenar yumuşatma (anti-aliasing)
                     data[n4 + 3] = Math.min(data[n4 + 3], 110);
                 }
             }
@@ -149,7 +144,7 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
 
 app.post('/api/siparis-olustur', async (req, res) => {
     try {
-        const { slogan, name, age, theme, orientation, size, price, customerName, customerPhone, customerEmail, customerAddress, photoBase64, textLayerBase64, isTestOrder } = req.body;
+        const { slogan, name, age, theme, orientation, size, price, customerName, customerPhone, customerEmail, customerAddress, photoBase64, photoTransform, textLayerBase64, isTestOrder } = req.body;
 
         const merchant_oid = 'AFIS' + Date.now();
         ordersDB[merchant_oid] = {
@@ -159,6 +154,7 @@ app.post('/api/siparis-olustur', async (req, res) => {
             name, age, theme, orientation, size, price,
             customerName, customerPhone, customerEmail, customerAddress,
             photoBase64: photoBase64 || null,
+            photoTransform: photoTransform || { scale: 1, offsetX: 0, offsetY: 0 },
             textLayerBase64: textLayerBase64 || null,
             status: 'ODEME_BEKLIYOR',
             fileName: null
@@ -278,8 +274,9 @@ async function generatePrintReadyFile(order) {
     const r = width * pCfg.r;
     const px = width * pCfg.x;
     const py = height * pCfg.y;
+    const tf = order.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 };
 
-    // 1. Önce müşteri fotoğrafını arkaya çiz
+    // 1. Müşteri fotoğrafını müşterinin ayarladığı zoom ve konum oranıyla arkaya çiz
     if (order.photoBase64) {
         const userPhoto = await loadImage(order.photoBase64);
         ctx.save();
@@ -287,13 +284,17 @@ async function generatePrintReadyFile(order) {
         ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.clip();
         const imgRatio = userPhoto.width / userPhoto.height;
-        let drawW = r * 2, drawH = r * 2;
-        if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
-        ctx.drawImage(userPhoto, px - drawW / 2, py - drawH / 2, drawW, drawH);
+        let baseW = r * 2, baseH = r * 2;
+        if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
+        const drawW = baseW * (tf.scale || 1);
+        const drawH = baseH * (tf.scale || 1);
+        const shiftX = (tf.offsetX || 0) * r;
+        const shiftY = (tf.offsetY || 0) * r;
+        ctx.drawImage(userPhoto, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
         ctx.restore();
     }
 
-    // 2. Şablonun iç penceresini otomatik açıp fotoğrafın üzerine katman olarak koy (kurdele üstte kalır)
+    // 2. Şablonun iç penceresini otomatik açıp üzerine katman olarak koy
     const tplCanvas = createCanvas(width, height);
     const tCtx = tplCanvas.getContext('2d');
     tCtx.drawImage(bgImg, 0, 0, width, height);
