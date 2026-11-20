@@ -28,9 +28,16 @@ function saveOrders() {
     fs.writeFileSync(ordersFile, JSON.stringify(ordersDB, null, 2), 'utf8');
 }
 
-const PHOTO_AREAS = {
-    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.168 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
-    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.168 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
+// Görsel kalibrasyon panelinden kaydedilen şablon ayarları
+const layoutsFile = path.join(__dirname, 'sablon_ayarlari.json');
+let customLayoutsDB = fs.existsSync(layoutsFile) ? JSON.parse(fs.readFileSync(layoutsFile, 'utf8')) : {};
+function saveLayouts() {
+    fs.writeFileSync(layoutsFile, JSON.stringify(customLayoutsDB, null, 2), 'utf8');
+}
+
+const DEFAULT_PHOTO_AREAS = {
+    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.212 } },
+    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.145 }, vertical: { x: 0.50, y: 0.365, r: 0.212 } },
     'prenses':      { horizontal: { x: 0.18, y: 0.360, r: 0.115 }, vertical: { x: 0.50, y: 0.480, r: 0.125 } },
     'safari':       { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
     'yaris':        { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
@@ -47,7 +54,7 @@ const LABEL_MAP = {
 
 app.get('/api/sablonlar', (req, res) => {
     const dir = path.join(__dirname, 'public', 'sablonlar');
-    if (!fs.existsSync(dir)) return res.json([]);
+    if (!fs.existsSync(dir)) return res.json({ templates: [], customLayouts: customLayoutsDB });
     const files = fs.readdirSync(dir);
     const map = {};
 
@@ -77,7 +84,21 @@ app.get('/api/sablonlar', (req, res) => {
         return a.label.localeCompare(b.label, 'tr');
     });
 
-    res.json(list);
+    res.json({ templates: list, customLayouts: customLayoutsDB });
+});
+
+// Görsel kalibrasyon ayarını sunucuya kaydetme ucu
+app.post('/api/sablon-ayari-kaydet', (req, res) => {
+    try {
+        const { theme, orientation, config } = req.body;
+        if (!theme || !orientation || !config) return res.status(400).json({ status: 'error', message: 'Eksik veri' });
+        if (!customLayoutsDB[theme]) customLayoutsDB[theme] = {};
+        customLayoutsDB[theme][orientation] = config;
+        saveLayouts();
+        res.json({ status: 'ok' });
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: e.message });
+    }
 });
 
 function findTemplateFile(baseDir, theme, orientationKey) {
@@ -88,57 +109,41 @@ function findTemplateFile(baseDir, theme, orientationKey) {
     return null;
 }
 
-// Altın çerçeve ve kurdele bordürünü koruyarak sadece açık mavi/beyaz iç dolguyu şeffaf açan hassas filtre
-function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
-    const x0 = Math.max(0, Math.floor(cx - maxR));
-    const y0 = Math.max(0, Math.floor(cy - maxR));
-    const w = Math.min(width - x0, Math.ceil(maxR * 2));
-    const h = Math.min(height - y0, Math.ceil(maxR * 2));
-    const imgData = ctx.getImageData(x0, y0, w, h);
-    const data = imgData.data;
+function drawCleanPhotoInFrame(ctx, bgImg, userPhoto, width, height, px, py, r, tf, theme, isHoriz) {
+    ctx.drawImage(bgImg, 0, 0, width, height);
+    if (!userPhoto) return;
 
-    const midX = Math.floor(cx - x0);
-    const midY = Math.floor(cy - y0);
-    const visited = new Uint8Array(w * h);
-    const queue = [midY * w + midX];
-    visited[midY * w + midX] = 1;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(px, py, r * 0.945, 0, Math.PI * 2);
+    ctx.clip();
 
-    let head = 0;
-    while (head < queue.length) {
-        const idx = queue[head++];
-        const px = idx % w;
-        const py = (idx - px) / w;
-        const dx = (px + x0) - cx;
-        const dy = (py + y0) - cy;
-        if (dx * dx + dy * dy > maxR * maxR) continue;
+    const imgRatio = userPhoto.width / userPhoto.height;
+    let baseW = r * 2, baseH = r * 2;
+    if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
+    const drawW = baseW * (tf.scale || 1);
+    const drawH = baseH * (tf.scale || 1);
+    const shiftX = (tf.offsetX || 0) * r;
+    const shiftY = (tf.offsetY || 0) * r;
+    ctx.drawImage(userPhoto, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
+    ctx.restore();
 
-        const p4 = idx * 4;
-        data[p4 + 3] = 0;
-
-        const neighbors = [
-            py > 0 ? idx - w : -1,
-            py < h - 1 ? idx + w : -1,
-            px > 0 ? idx - 1 : -1,
-            px < w - 1 ? idx + 1 : -1
-        ];
-
-        for (let n of neighbors) {
-            if (n !== -1 && !visited[n]) {
-                visited[n] = 1;
-                const n4 = n * 4;
-                const r = data[n4], g = data[n4 + 1], b = data[n4 + 2];
-                // Altın çerçeve sarı/turuncu olduğu için B kanalı düşüktür (r - b > 35). İç dolgu açık mavi/beyazdır (b >= r - 12 ve parlaktır).
-                const brightness = (r + g + b) / 3;
-                const isGoldOrDark = (r - b > 28) || brightness < 185;
-                if (!isGoldOrDark) {
-                    queue.push(n);
-                } else {
-                    data[n4 + 3] = Math.min(data[n4 + 3], 180);
-                }
-            }
-        }
+    if (theme === 'mavi-prens' || !DEFAULT_PHOTO_AREAS[theme]) {
+        const ribbonTopY = isHoriz ? height * 0.542 : height * 0.495;
+        const ribbonH = isHoriz ? height * 0.14 : height * 0.13;
+        const ribbonW = isHoriz ? width * 0.36 : width * 0.48;
+        ctx.drawImage(
+            bgImg,
+            (bgImg.width / width) * (px - ribbonW / 2),
+            (bgImg.height / height) * ribbonTopY,
+            (bgImg.width / width) * ribbonW,
+            (bgImg.height / height) * ribbonH,
+            px - ribbonW / 2,
+            ribbonTopY,
+            ribbonW,
+            ribbonH
+        );
     }
-    ctx.putImageData(imgData, x0, y0);
 }
 
 app.post('/api/siparis-olustur', async (req, res) => {
@@ -251,7 +256,7 @@ app.get('/yonetim', (req, res) => {
 
     res.send(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Premium Afiş Yönetim Paneli</title>
     <style>body{font-family:sans-serif;padding:24px;background:#f8f9fa}table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08)}th,td{padding:14px;border-bottom:1px solid #eee;text-align:left;font-size:14px}th{background:#1E193B;color:#fff}</style>
-    </head><body><h2>Premium Afiş - Gelen Siparişler ve Baskı Merkezi</h2><table><tr><th>Sipariş No</th><th>Afiş Detayı</th><th>Müşteri & Kargo</th><th>Tutar / Durum</th><th>Baskı Dosyası</th></tr>${rows || '<tr><td colspan="5">Henüz sipariş yok.</td></tr>'}</table></body></html>`);
+    </head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h2>Premium Afiş - Gelen Siparişler ve Baskı Merkezi</h2><a href="/?kalibre=1" style="background:#FFB300;color:#1E193B;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold;">Görsel Şablon Kalibratörünü Aç</a></div><table><tr><th>Sipariş No</th><th>Afiş Detayı</th><th>Müşteri & Kargo</th><th>Tutar / Durum</th><th>Baskı Dosyası</th></tr>${rows || '<tr><td colspan="5">Henüz sipariş yok.</td></tr>'}</table></body></html>`);
 });
 
 async function generatePrintReadyFile(order) {
@@ -269,37 +274,19 @@ async function generatePrintReadyFile(order) {
     }
 
     const bgImg = await loadImage(tplPath);
-    const pCfg = (PHOTO_AREAS[order.theme] || PHOTO_AREAS['default'])[order.orientation];
+    const savedCfg = customLayoutsDB[order.theme]?.[order.orientation];
+    const baseArea = (DEFAULT_PHOTO_AREAS[order.theme] || DEFAULT_PHOTO_AREAS['default'])[order.orientation];
+    const pCfg = savedCfg ? { x: savedCfg.photoX, y: savedCfg.photoY, r: savedCfg.photoR } : baseArea;
+
     const r = width * pCfg.r;
     const px = width * pCfg.x;
     const py = height * pCfg.y;
     const tf = order.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 };
 
-    if (order.photoBase64) {
-        const userPhoto = await loadImage(order.photoBase64);
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(px, py, r * 1.03, 0, Math.PI * 2);
-        ctx.clip();
-        const imgRatio = userPhoto.width / userPhoto.height;
-        let baseW = r * 2.06, baseH = r * 2.06;
-        if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
-        const drawW = baseW * (tf.scale || 1);
-        const drawH = baseH * (tf.scale || 1);
-        const shiftX = (tf.offsetX || 0) * r;
-        const shiftY = (tf.offsetY || 0) * r;
-        ctx.drawImage(userPhoto, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
-        ctx.restore();
-    }
+    const userPhoto = order.photoBase64 ? await loadImage(order.photoBase64) : null;
+    drawCleanPhotoInFrame(ctx, bgImg, userPhoto, width, height, px, py, r, tf, order.theme, isHoriz);
 
-    const tplCanvas = createCanvas(width, height);
-    const tCtx = tplCanvas.getContext('2d');
-    tCtx.drawImage(bgImg, 0, 0, width, height);
-    if (order.photoBase64) {
-        punchFrameWindow(tCtx, width, height, px, py, r);
-    }
-    ctx.drawImage(tplCanvas, 0, 0);
-
+    // 3D Alt Kurdele + 3D altın/inci kabartmalı yazı katmanı
     if (order.textLayerBase64) {
         const textLayer = await loadImage(order.textLayerBase64);
         ctx.drawImage(textLayer, 0, 0, width, height);
