@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -356,7 +356,6 @@
         const age = document.getElementById('inpAge').value;
         const cx = canvas.width / 2;
 
-        // 1. Fotoğraf alanı (Müşteri fotoğraf yüklediyse onu çizer; yüklemediyse şablondaki vitrin görünümünü korur)
         if (state.photoImg) {
             const r = canvas.width * cfg.photoR;
             const px = canvas.width * cfg.photoX;
@@ -370,7 +369,6 @@
             ctx.drawImage(state.photoImg, px - drawW / 2, py - drawH / 2, drawW, drawH);
             ctx.restore();
         } else {
-            // Henüz fotoğraf yüklenmediyse çerçeve içine şık vitrin yönlendirmesi çizer
             const r = canvas.width * cfg.photoR;
             const px = canvas.width * cfg.photoX;
             const py = canvas.height * cfg.photoY;
@@ -385,19 +383,16 @@
             ctx.restore();
         }
 
-        // 2. Üst Slogan
         if (slogan) {
             const sSize = fitFontSize(slogan, Math.floor(canvas.width * cfg.sloganMaxH), canvas.width * cfg.sloganMaxW);
             drawCurved3DText(slogan, cx, canvas.height * cfg.sloganY, sSize, cfg.sloganArc, cfg);
         }
 
-        // 3. Müşteri İsmi
         if (name) {
             const nSize = fitFontSize(name, Math.floor(canvas.width * cfg.nameMaxH), canvas.width * cfg.nameMaxW);
             drawCurved3DText(name, cx, canvas.height * cfg.nameY, nSize, cfg.nameArc, cfg);
         }
 
-        // 4. Yaş Madalyonu & Rakamı
         if (cfg.hasAgeBadge) {
             const bx = canvas.width * cfg.badgeX;
             const by = canvas.height * cfg.badgeY;
@@ -414,7 +409,6 @@
         drawCurved3DText(age, cx, canvas.height * cfg.ageY, Math.floor(canvas.width * cfg.ageSize), 0, cfg);
         drawCurved3DText(cfg.ageSub, cx, canvas.height * cfg.ageSubY, Math.floor(canvas.width * cfg.ageSubSize), 0.08, cfg);
 
-        // 5. Önizleme Filigranı
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(-28 * Math.PI / 180);
@@ -464,7 +458,98 @@
         document.getElementById('checkoutModal').style.display = 'flex';
     }
 
+    function renderHighResTextLayer() {
+        const isHoriz = state.orientation === 'horizontal';
+        const hiCanvas = document.createElement('canvas');
+        hiCanvas.width = isHoriz ? 4800 : 3600;
+        hiCanvas.height = isHoriz ? 3600 : 4800;
+        const hCtx = hiCanvas.getContext('2d');
+
+        const cfg = LAYOUTS[state.theme][state.orientation];
+        const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
+        const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
+        const age = document.getElementById('inpAge').value;
+        const cx = hiCanvas.width / 2;
+
+        function fitHi(txt, maxF, maxW) {
+            let s = maxF;
+            hCtx.font = `900 ${s}px 'Montserrat', 'Fredoka', sans-serif`;
+            let m = hCtx.measureText(txt).width * 1.05;
+            if (m > maxW) s = Math.floor(s * (maxW / m));
+            return Math.max(60, s);
+        }
+
+        function renderHiArc(chars, widths, totalWidth, cx0, cy0, radius, arcStrength, drawFn) {
+            let currentX = -totalWidth / 2;
+            for (let i = 0; i < chars.length; i++) {
+                const charMid = currentX + widths[i] / 2;
+                hCtx.save();
+                if (arcStrength > 0) {
+                    const angle = charMid / radius;
+                    hCtx.translate(cx0 + Math.sin(angle) * radius, cy0 + (radius - Math.cos(angle) * radius));
+                    hCtx.rotate(angle);
+                } else {
+                    hCtx.translate(cx0 + charMid, cy0);
+                }
+                drawFn(chars[i]);
+                hCtx.restore();
+                currentX += widths[i];
+            }
+        }
+
+        function drawHi3D(txt, centerX, centerY, fontSize, arcStrength) {
+            if (!txt) return;
+            hCtx.save();
+            hCtx.font = `900 ${fontSize}px 'Montserrat', 'Fredoka', sans-serif`;
+            hCtx.textAlign = 'center'; hCtx.textBaseline = 'middle';
+            const chars = txt.split('');
+            const widths = chars.map(c => hCtx.measureText(c).width * 1.03);
+            const totalWidth = widths.reduce((a, b) => a + b, 0);
+            const radius = arcStrength > 0 ? (totalWidth / (arcStrength * Math.PI)) : 999999;
+
+            const depthSteps = Math.max(24, Math.floor(fontSize * 0.16));
+            for (let d = depthSteps; d > 0; d--) {
+                renderHiArc(chars, widths, totalWidth, centerX, centerY + d, radius, arcStrength, (ch) => {
+                    hCtx.lineJoin = 'round'; hCtx.strokeStyle = '#120B07'; hCtx.lineWidth = Math.max(16, fontSize * 0.14); hCtx.strokeText(ch, 0, 0);
+                    hCtx.fillStyle = '#120B07'; hCtx.fillText(ch, 0, 0);
+                });
+            }
+            renderHiArc(chars, widths, totalWidth, centerX, centerY, radius, arcStrength, (ch) => {
+                hCtx.lineJoin = 'round'; hCtx.strokeStyle = cfg.strokeLight; hCtx.lineWidth = Math.max(24, fontSize * 0.17); hCtx.strokeText(ch, 0, 0);
+            });
+            renderHiArc(chars, widths, totalWidth, centerX, centerY, radius, arcStrength, (ch) => {
+                hCtx.lineJoin = 'round'; hCtx.strokeStyle = cfg.strokeDark; hCtx.lineWidth = Math.max(12, fontSize * 0.08); hCtx.strokeText(ch, 0, 0);
+            });
+            renderHiArc(chars, widths, totalWidth, centerX, centerY, radius, arcStrength, (ch) => {
+                const grad = hCtx.createLinearGradient(0, -fontSize * 0.55, 0, fontSize * 0.55);
+                grad.addColorStop(0.0, cfg.goldTop); grad.addColorStop(0.35, cfg.goldMid);
+                grad.addColorStop(0.75, cfg.goldBot); grad.addColorStop(1.0, cfg.goldMid);
+                hCtx.fillStyle = grad; hCtx.fillText(ch, 0, 0);
+            });
+            hCtx.restore();
+        }
+
+        if (slogan) drawHi3D(slogan, cx, hiCanvas.height * cfg.sloganY, fitHi(slogan, Math.floor(hiCanvas.width * cfg.sloganMaxH), hiCanvas.width * cfg.sloganMaxW), cfg.sloganArc);
+        if (name) drawHi3D(name, cx, hiCanvas.height * cfg.nameY, fitHi(name, Math.floor(hiCanvas.width * cfg.nameMaxH), hiCanvas.width * cfg.nameMaxW), cfg.nameArc);
+
+        if (cfg.hasAgeBadge) {
+            const bx = hiCanvas.width * cfg.badgeX, by = hiCanvas.height * cfg.badgeY, br = hiCanvas.width * cfg.badgeR;
+            hCtx.save();
+            hCtx.shadowColor = 'rgba(0,0,0,0.45)'; hCtx.shadowBlur = 40; hCtx.shadowOffsetY = 18;
+            hCtx.beginPath(); hCtx.arc(bx, by, br, 0, Math.PI * 2); hCtx.fillStyle = '#FFB300'; hCtx.fill();
+            hCtx.beginPath(); hCtx.arc(bx, by, br * 0.90, 0, Math.PI * 2); hCtx.fillStyle = '#1565C0'; hCtx.fill();
+            hCtx.beginPath(); hCtx.arc(bx, by, br * 0.76, 0, Math.PI * 2); hCtx.fillStyle = '#FFFFFF'; hCtx.fill();
+            hCtx.restore();
+        }
+
+        drawHi3D(age, cx, hiCanvas.height * cfg.ageY, Math.floor(hiCanvas.width * cfg.ageSize), 0);
+        drawHi3D(cfg.ageSub, cx, hiCanvas.height * cfg.ageSubY, Math.floor(hiCanvas.width * cfg.ageSubSize), 0.08);
+
+        return hiCanvas.toDataURL('image/png');
+    }
+
     async function submitOrder() {
+        const textLayerBase64 = renderHighResTextLayer();
         const payload = {
             slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
             name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
@@ -478,6 +563,7 @@
             customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
             customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
             photoBase64: state.photoBase64,
+            textLayerBase64: textLayerBase64,
             isTestOrder: state.isTest
         };
 
@@ -493,7 +579,7 @@
                 alert('Bilgi: ' + (data.reason || data.message));
             }
         } catch (e) {
-            alert('Bu buton site internete (bulut sunucuya) yüklendiğinde PayTR ve baskı robotunu otomatik tetikleyecektir.');
+            alert('Hata: ' + e.message);
         }
     }
 
