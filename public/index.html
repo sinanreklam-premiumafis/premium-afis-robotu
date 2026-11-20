@@ -931,4 +931,36 @@
         const payload = {
             slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
             name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
-            age: document.getElementById('inpAge').value.
+            age: document.getElementById('inpAge').value.trim() || '1',
+            theme: state.theme,
+            orientation: state.orientation,
+            size: state.size,
+            price: state.price,
+            customerName: document.getElementById('custName').value || 'Test Müşteri',
+            customerPhone: document.getElementById('custPhone').value || '05000000000',
+            customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
+            customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
+            photoBase64: state.photoBase64,
+            photoTransform: state.photoTransform,
+            textLayerBase64: textLayerBase64,
+            isTestOrder: state.isTest
+        };
+
+        try {
+            const res = await fetch('/api/siparis-olustur', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (data.status === 'test_success') {
+                alert(`ROBOT BAŞARIYLA ÇALIŞTI!\n\nBaskı dosyanız üretildi:\n${data.fileName}`);
+                document.getElementById('checkoutModal').style.display = 'none';
+            } else if (data.status === 'success') {
+                document.getElementById('paytrBox').innerHTML = `<iframe src="https://www.paytr.com/odeme/guvenli/${data.token}" frameborder="0" style="width:100%; height:420px;"></iframe>`;
+            } else {
+                alert('Bilgi: ' + (data.reason || data.message));
+            }
+        } catch (e) {
+            alert('Hata: ' + e.message);
+        }
+    }
+</script>
+</body>
+</html>
