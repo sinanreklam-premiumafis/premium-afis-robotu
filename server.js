@@ -29,12 +29,12 @@ function saveOrders() {
 }
 
 const PHOTO_AREAS = {
-    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.165 }, vertical: { x: 0.50, y: 0.365, r: 0.195 } },
-    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.165 }, vertical: { x: 0.50, y: 0.365, r: 0.195 } },
+    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.165 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
+    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.165 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
     'prenses':      { horizontal: { x: 0.18, y: 0.360, r: 0.115 }, vertical: { x: 0.50, y: 0.480, r: 0.125 } },
-    'safari':       { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.190 } },
-    'yaris':        { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.190 } },
-    'hayvan-balon': { horizontal: { x: 0.84, y: 0.220, r: 0.110 }, vertical: { x: 0.50, y: 0.350, r: 0.115 } }
+    'safari':       { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
+    'yaris':        { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
+    'hayvan-balon': { horizontal: { x: 0.84, y: 0.220, r: 0.110 }, vertical: { x: 0.50, y: 0.350, r: 0.120 } }
 };
 
 const LABEL_MAP = {
@@ -276,7 +276,6 @@ async function generatePrintReadyFile(order) {
     const py = height * pCfg.y;
     const tf = order.photoTransform || { scale: 1, offsetX: 0, offsetY: 0 };
 
-    // 1. Müşteri fotoğrafını müşterinin ayarladığı zoom ve konum oranıyla arkaya çiz
     if (order.photoBase64) {
         const userPhoto = await loadImage(order.photoBase64);
         ctx.save();
@@ -294,7 +293,6 @@ async function generatePrintReadyFile(order) {
         ctx.restore();
     }
 
-    // 2. Şablonun iç penceresini otomatik açıp üzerine katman olarak koy
     const tplCanvas = createCanvas(width, height);
     const tCtx = tplCanvas.getContext('2d');
     tCtx.drawImage(bgImg, 0, 0, width, height);
@@ -303,7 +301,6 @@ async function generatePrintReadyFile(order) {
     }
     ctx.drawImage(tplCanvas, 0, 0);
 
-    // 3. 3D altın/inci kabartmalı yazı katmanı
     if (order.textLayerBase64) {
         const textLayer = await loadImage(order.textLayerBase64);
         ctx.drawImage(textLayer, 0, 0, width, height);
