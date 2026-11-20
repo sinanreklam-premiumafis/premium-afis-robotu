@@ -20,7 +20,16 @@
         @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
 
         .preview-area { background: #FDF2F6; border: 2px dashed var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        canvas { max-width: 100%; max-height: 560px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; }
+        canvas { max-width: 100%; max-height: 540px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; touch-action: none; }
+        canvas.draggable { cursor: grab; }
+        canvas.dragging { cursor: grabbing; }
+
+        .photo-tools { display: none; align-items: center; gap: 8px; margin-top: 10px; background: #fff; border: 1.5px solid #F8BBD0; padding: 7px 14px; border-radius: 30px; width: 100%; max-width: 440px; }
+        .photo-tools span { font-size: 11px; font-weight: 700; color: #880E4F; white-space: nowrap; }
+        .photo-tools input[type="range"] { flex: 1; accent-color: var(--pink); padding: 0; border: none; cursor: pointer; }
+        .zoom-btn { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--pink); background: #FFF0F6; color: var(--pink); font-weight: 800; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+        .reset-btn { font-size: 11px; background: #1E193B; color: #fff; border: none; padding: 5px 10px; border-radius: 14px; font-weight: 700; cursor: pointer; }
+
         .lock-note { margin-top: 10px; font-size: 12px; color: #880E4F; background: #FCE4EC; padding: 6px 14px; border-radius: 20px; font-weight: 600; text-align: center; }
 
         .grp { margin-bottom: 14px; }
@@ -65,7 +74,14 @@
     <div class="grid">
         <div class="preview-area">
             <canvas id="canvas"></canvas>
-            <div class="lock-note">Önizleme korumalıdır. Ödeme sonrası filigransız yüksek çözünürlüklü baskı üretilir.</div>
+            <div class="photo-tools" id="photoTools">
+                <span>Fotoğraf:</span>
+                <button type="button" class="zoom-btn" onclick="stepZoom(-0.1)">−</button>
+                <input type="range" id="zoomRange" min="0.5" max="2.8" step="0.02" value="1">
+                <button type="button" class="zoom-btn" onclick="stepZoom(0.1)">+</button>
+                <button type="button" class="reset-btn" onclick="resetPhotoTransform()">Ortala</button>
+            </div>
+            <div class="lock-note" id="lockNote">Önizleme korumalıdır. Ödeme sonrası filigransız yüksek çözünürlüklü baskı üretilir.</div>
         </div>
 
         <div>
@@ -96,25 +112,18 @@
 
             <div class="grp row2">
                 <div>
-                    <label>3. Çocuğun İsmi</label>
+                    <label>3. İsim</label>
                     <input type="text" id="inpName" value="YUSUF MAHİR" maxlength="22">
                 </div>
                 <div>
-                    <label>Yaşı</label>
-                    <select id="inpAge">
-                        <option value="1" selected>1 Yaş</option>
-                        <option value="2">2 Yaş</option>
-                        <option value="3">3 Yaş</option>
-                        <option value="4">4 Yaş</option>
-                        <option value="5">5 Yaş</option>
-                        <option value="6">6 Yaş</option>
-                        <option value="7">7 Yaş</option>
-                    </select>
+                    <label>Yaşı (Yaz veya Seç)</label>
+                    <input type="text" id="inpAge" list="ageList" value="1" maxlength="4" placeholder="1-80">
+                    <datalist id="ageList"></datalist>
                 </div>
             </div>
 
             <div class="grp">
-                <label>4. Fotoğraf Yükle (Kendi Fotoğrafınızla Değiştirin)</label>
+                <label>4. Fotoğraf Yükle (Yükledikten Sonra Sürükleyip Büyütebilirsiniz)</label>
                 <div class="upload-btn" onclick="document.getElementById('inpPhoto').click()">+ Fotoğraf Seçmek İçin Tıklayın</div>
                 <input type="file" id="inpPhoto" accept="image/*" style="display:none;">
             </div>
@@ -152,21 +161,30 @@
 </div>
 
 <script>
+    // 1'den 80'e kadar yaş listesini doldur
+    const ageDataList = document.getElementById('ageList');
+    for (let i = 1; i <= 80; i++) {
+        const opt = document.createElement('option');
+        opt.value = i.toString();
+        opt.label = i + ' Yaş';
+        ageDataList.appendChild(opt);
+    }
+
     const DEFAULT_LAYOUT = {
         defaultName: 'YUSUF MAHİR',
         horizontal: {
             sloganY: 0.118, sloganArc: 0.20, sloganMaxW: 0.36, sloganMaxH: 0.048,
             nameY: 0.625, nameArc: 0.14, nameMaxW: 0.32, nameMaxH: 0.055,
-            ageY: 0.775, ageSize: 0.130, ageSub: 'YAŞ', ageSubY: 0.892, ageSubSize: 0.038,
+            ageY: 0.775, ageSize: 0.125, ageSub: 'YAŞ', ageSubY: 0.892, ageSubSize: 0.038,
             photoX: 0.50, photoY: 0.415, photoR: 0.165,
             sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
             nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
             ageStyle:    { top: '#FFF9C4', mid: '#FFD54F', bot: '#FF6F00', rim: '#1565C0', block: '#061A40' }
         },
         vertical: {
-            sloganY: 0.118, sloganArc: 0.20, sloganMaxW: 0.44, sloganMaxH: 0.052,
-            nameY: 0.562, nameArc: 0.14, nameMaxW: 0.40, nameMaxH: 0.062,
-            ageY: 0.745, ageSize: 0.145, ageSub: 'YAŞ', ageSubY: 0.880, ageSubSize: 0.044,
+            sloganY: 0.122, sloganArc: 0.20, sloganMaxW: 0.46, sloganMaxH: 0.052,
+            nameY: 0.562, nameArc: 0.14, nameMaxW: 0.42, nameMaxH: 0.062,
+            ageY: 0.742, ageSize: 0.140, ageSub: 'YAŞ', ageSubY: 0.878, ageSubSize: 0.044,
             photoX: 0.50, photoY: 0.365, photoR: 0.195,
             sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF8F00', rim: '#FFFFFF', block: '#0A2463' },
             nameStyle:   { top: '#FFFFFF', mid: '#F5F7FA', bot: '#CFD8DC', rim: '#FFB300', block: '#061A40' },
@@ -190,7 +208,7 @@
             vertical: {
                 sloganY: 0.24, sloganArc: 0.12, sloganMaxW: 0.52, sloganMaxH: 0.048,
                 nameY: 0.37, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.10,
-                ageY: 0.62, ageSize: 0.15, ageSub: 'YAŞINDA', ageSubY: 0.74, ageSubSize: 0.05,
+                ageY: 0.62, ageSize: 0.145, ageSub: 'YAŞINDA', ageSubY: 0.74, ageSubSize: 0.05,
                 photoX: 0.50, photoY: 0.48, photoR: 0.125,
                 sloganStyle: { top: '#FFF9C4', mid: '#FFD54F', bot: '#F57F17', rim: '#FFFFFF', block: '#880E4F' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FCE4EC', bot: '#F8BBD0', rim: '#FFD54F', block: '#6A1B9A' },
@@ -253,7 +271,7 @@
             vertical: {
                 sloganY: 0.10, sloganArc: 0.06, sloganMaxW: 0.52, sloganMaxH: 0.046,
                 nameY: 0.22, nameArc: 0.0, nameMaxW: 0.58, nameMaxH: 0.105,
-                ageY: 0.69, ageSize: 0.15, ageSub: 'YAŞINDA', ageSubY: 0.82, ageSubSize: 0.05,
+                ageY: 0.69, ageSize: 0.145, ageSub: 'YAŞINDA', ageSubY: 0.82, ageSubSize: 0.05,
                 photoX: 0.50, photoY: 0.35, photoR: 0.115,
                 sloganStyle: { top: '#FFFDE7', mid: '#FFD54F', bot: '#FF6F00', rim: '#FFFFFF', block: '#4E342E' },
                 nameStyle:   { top: '#FFFFFF', mid: '#FFF8E1', bot: '#FFE082', rim: '#FF8F00', block: '#3E2723' },
@@ -266,7 +284,17 @@
     const initialTheme = urlParams.get('tema') || 'mavi-prens';
 
     let templateFiles = {};
-    let state = { theme: initialTheme, orientation: 'horizontal', size: '150x200', price: 950, photoBase64: null, photoImg: null, userTypedName: false, isTest: false };
+    let state = {
+        theme: initialTheme,
+        orientation: 'horizontal',
+        size: '150x200',
+        price: 950,
+        photoBase64: null,
+        photoImg: null,
+        photoTransform: { scale: 1, offsetX: 0, offsetY: 0 },
+        userTypedName: false,
+        isTest: false
+    };
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -282,6 +310,108 @@
         draw();
     }
 
+    function stepZoom(delta) {
+        const next = Math.min(2.8, Math.max(0.5, +(state.photoTransform.scale + delta).toFixed(2)));
+        state.photoTransform.scale = next;
+        document.getElementById('zoomRange').value = next;
+        draw();
+    }
+
+    function resetPhotoTransform() {
+        state.photoTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+        document.getElementById('zoomRange').value = 1;
+        draw();
+    }
+
+    document.getElementById('zoomRange').oninput = (e) => {
+        state.photoTransform.scale = parseFloat(e.target.value);
+        draw();
+    };
+
+    // Fare ve dokunmatik parmak ile fotoğrafı sağa-sola/yukarı-aşağı sürükleme ve pinch-zoom
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let initialPinchDist = null;
+    let initialPinchScale = 1;
+
+    function getCanvasCoords(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (clientX - rect.left) * (canvas.width / rect.width),
+            y: (clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (!state.photoImg) return;
+        isDragging = true;
+        canvas.classList.add('dragging');
+        dragStart = getCanvasCoords(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging || !state.photoImg) return;
+        const pos = getCanvasCoords(e.clientX, e.clientY);
+        const r = canvas.width * getCfg().photoR;
+        state.photoTransform.offsetX += (pos.x - dragStart.x) / r;
+        state.photoTransform.offsetY += (pos.y - dragStart.y) / r;
+        dragStart = pos;
+        draw();
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+        canvas.classList.remove('dragging');
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        if (!state.photoImg) return;
+        e.preventDefault();
+        stepZoom(e.deltaY < 0 ? 0.08 : -0.08);
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (!state.photoImg) return;
+        if (e.touches.length === 1) {
+            isDragging = true;
+            dragStart = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+        } else if (e.touches.length === 2) {
+            isDragging = false;
+            initialPinchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            initialPinchScale = state.photoTransform.scale;
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (!state.photoImg) return;
+        e.preventDefault();
+        if (e.touches.length === 1 && isDragging) {
+            const pos = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+            const r = canvas.width * getCfg().photoR;
+            state.photoTransform.offsetX += (pos.x - dragStart.x) / r;
+            state.photoTransform.offsetY += (pos.y - dragStart.y) / r;
+            dragStart = pos;
+            draw();
+        } else if (e.touches.length === 2 && initialPinchDist) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const nextScale = Math.min(2.8, Math.max(0.5, +(initialPinchScale * (dist / initialPinchDist)).toFixed(2)));
+            state.photoTransform.scale = nextScale;
+            document.getElementById('zoomRange').value = nextScale;
+            draw();
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+        isDragging = false;
+        initialPinchDist = null;
+    });
+
     function loadTemplate() {
         const dir = state.orientation === 'horizontal' ? 'yatay' : 'dikey';
         const customSrc = templateFiles[state.theme]?.[state.orientation];
@@ -294,7 +424,6 @@
         bgImg.src = customSrc || `sablonlar/${state.theme}-${dir}.jpg`;
     }
 
-    // Şablonun ortasındaki açık renkli fotoğraf penceresini otomatik algılayıp şeffaf açar (kurdele ve çerçeve üstte kalır)
     function punchPreviewWindow(targetCtx, width, height, cx, cy, maxR) {
         const x0 = Math.max(0, Math.floor(cx - maxR));
         const y0 = Math.max(0, Math.floor(cy - maxR));
@@ -437,6 +566,12 @@
         targetCtx.restore();
     }
 
+    function getAgeFontSize(basePx, ageText) {
+        if (!ageText || ageText.length <= 1) return basePx;
+        if (ageText.length === 2) return Math.floor(basePx * 0.80);
+        return Math.floor(basePx * 0.62);
+    }
+
     function draw() {
         const isHoriz = state.orientation === 'horizontal';
         canvas.width = isHoriz ? 1200 : 900;
@@ -445,7 +580,7 @@
         const cfg = getCfg();
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
-        const age = document.getElementById('inpAge').value;
+        const age = document.getElementById('inpAge').value.trim() || '1';
         const cx = canvas.width / 2;
 
         const r = canvas.width * cfg.photoR;
@@ -453,18 +588,20 @@
         const py = canvas.height * cfg.photoY;
 
         if (state.photoImg) {
-            // 1. Önce müşteri fotoğrafını arkaya çiz
             ctx.save();
             ctx.beginPath();
             ctx.arc(px, py, r, 0, Math.PI * 2);
             ctx.clip();
             const imgRatio = state.photoImg.width / state.photoImg.height;
-            let drawW = r * 2, drawH = r * 2;
-            if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
-            ctx.drawImage(state.photoImg, px - drawW / 2, py - drawH / 2, drawW, drawH);
+            let baseW = r * 2, baseH = r * 2;
+            if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
+            const drawW = baseW * state.photoTransform.scale;
+            const drawH = baseH * state.photoTransform.scale;
+            const shiftX = state.photoTransform.offsetX * r;
+            const shiftY = state.photoTransform.offsetY * r;
+            ctx.drawImage(state.photoImg, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
             ctx.restore();
 
-            // 2. Şablonun sadece iç penceresini şeffaf yapıp üstüne yerleştir (kurdele üstte kalır)
             const tmpC = document.createElement('canvas');
             tmpC.width = canvas.width;
             tmpC.height = canvas.height;
@@ -493,7 +630,8 @@
             drawEmbossed3D(ctx, name, cx, canvas.height * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
         }
 
-        drawEmbossed3D(ctx, age, cx, canvas.height * cfg.ageY, Math.floor(canvas.width * cfg.ageSize), 0, cfg.ageStyle);
+        const aSize = getAgeFontSize(Math.floor(canvas.width * cfg.ageSize), age);
+        drawEmbossed3D(ctx, age, cx, canvas.height * cfg.ageY, aSize, 0, cfg.ageStyle);
         drawEmbossed3D(ctx, cfg.ageSub, cx, canvas.height * cfg.ageSubY, Math.floor(canvas.width * cfg.ageSubSize), 0.08, cfg.nameStyle);
 
         ctx.save();
@@ -553,11 +691,25 @@
     });
     document.getElementById('inpSlogan').oninput = draw;
     document.getElementById('inpName').oninput = () => { state.userTypedName = true; draw(); };
-    document.getElementById('inpAge').onchange = draw;
+    document.getElementById('inpAge').oninput = draw;
+    document.getElementById('inpAge').onfocus = function() { this.select(); };
+
     document.getElementById('inpPhoto').onchange = (e) => {
         const f = e.target.files[0]; if (!f) return;
         const r = new FileReader();
-        r.onload = (ev) => { state.photoBase64 = ev.target.result; const img = new Image(); img.onload = () => { state.photoImg = img; draw(); }; img.src = ev.target.result; };
+        r.onload = (ev) => {
+            state.photoBase64 = ev.target.result;
+            const img = new Image();
+            img.onload = () => {
+                state.photoImg = img;
+                resetPhotoTransform();
+                canvas.classList.add('draggable');
+                document.getElementById('photoTools').style.display = 'flex';
+                document.getElementById('lockNote').textContent = 'İpucu: Fotoğrafı fare veya parmakla sürükleyip kaydırabilir, çubuktan büyütebilirsiniz.';
+                draw();
+            };
+            img.src = ev.target.result;
+        };
         r.readAsDataURL(f);
     };
 
@@ -578,7 +730,7 @@
         const cfg = getCfg();
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
-        const age = document.getElementById('inpAge').value;
+        const age = document.getElementById('inpAge').value.trim() || '1';
         const cx = hiCanvas.width / 2;
 
         if (slogan) {
@@ -590,7 +742,8 @@
             drawEmbossed3D(hCtx, name, cx, hiCanvas.height * cfg.nameY, nSize, cfg.nameArc, cfg.nameStyle);
         }
 
-        drawEmbossed3D(hCtx, age, cx, hiCanvas.height * cfg.ageY, Math.floor(hiCanvas.width * cfg.ageSize), 0, cfg.ageStyle);
+        const aSize = getAgeFontSize(Math.floor(hiCanvas.width * cfg.ageSize), age);
+        drawEmbossed3D(hCtx, age, cx, hiCanvas.height * cfg.ageY, aSize, 0, cfg.ageStyle);
         drawEmbossed3D(hCtx, cfg.ageSub, cx, hiCanvas.height * cfg.ageSubY, Math.floor(hiCanvas.width * cfg.ageSubSize), 0.08, cfg.nameStyle);
 
         return hiCanvas.toDataURL('image/png');
@@ -601,7 +754,7 @@
         const payload = {
             slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
             name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
-            age: document.getElementById('inpAge').value,
+            age: document.getElementById('inpAge').value.trim() || '1',
             theme: state.theme,
             orientation: state.orientation,
             size: state.size,
@@ -611,6 +764,7 @@
             customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
             customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
             photoBase64: state.photoBase64,
+            photoTransform: state.photoTransform,
             textLayerBase64: textLayerBase64,
             isTestOrder: state.isTest
         };
