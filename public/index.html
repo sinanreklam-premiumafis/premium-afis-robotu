@@ -837,4 +837,130 @@
                 b.classList.add('active');
                 state.theme = b.dataset.t;
                 if (!state.userTypedName) {
-                    const t
+                    const tObj = LAYOUTS[state.theme] || DEFAULT_LAYOUT;
+                    document.getElementById('inpName').value = tObj.defaultName;
+                }
+                loadTemplate();
+            };
+        });
+    }
+
+    bindThemeButtons();
+    loadTemplate();
+
+    fetch('/api/sablonlar').then(r => r.json()).then(resData => {
+        const list = resData.templates || [];
+        const savedLayouts = resData.customLayouts || {};
+        Object.keys(savedLayouts).forEach(tKey => {
+            if (!LAYOUTS[tKey]) LAYOUTS[tKey] = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+            if (savedLayouts[tKey].horizontal) Object.assign(LAYOUTS[tKey].horizontal, savedLayouts[tKey].horizontal);
+            if (savedLayouts[tKey].vertical) Object.assign(LAYOUTS[tKey].vertical, savedLayouts[tKey].vertical);
+        });
+
+        if (list.length > 0) {
+            const container = document.getElementById('themes');
+            container.innerHTML = '';
+            list.forEach(item => {
+                templateFiles[item.id] = item.files;
+                const btn = document.createElement('button');
+                btn.className = 'pill' + (item.id === state.theme ? ' active' : '');
+                btn.dataset.t = item.id;
+                btn.textContent = item.label;
+                container.appendChild(btn);
+            });
+            bindThemeButtons();
+            loadTemplate();
+        }
+    }).catch(() => {});
+
+    document.querySelectorAll('.orient-btn').forEach(b => {
+        b.onclick = () => { document.querySelector('.orient-btn.active').classList.remove('active'); b.classList.add('active'); state.orientation = b.dataset.o; loadTemplate(); };
+    });
+    document.querySelectorAll('.size-box').forEach(b => {
+        b.onclick = () => { document.querySelector('.size-box.active').classList.remove('active'); b.classList.add('active'); state.size = b.dataset.s; state.price = b.dataset.p; document.getElementById('lblPrice').textContent = state.price + ' TL'; };
+    });
+    document.getElementById('inpSlogan').oninput = draw;
+    document.getElementById('inpName').oninput = () => { state.userTypedName = true; draw(); };
+    document.getElementById('inpAge').oninput = draw;
+    document.getElementById('inpAge').onfocus = function() { this.select(); };
+
+    document.getElementById('inpPhoto').onchange = (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            state.photoBase64 = ev.target.result;
+            const img = new Image();
+            img.onload = () => {
+                state.photoImg = img;
+                resetPhotoTransform();
+                canvas.classList.add('draggable');
+                document.getElementById('photoTools').style.display = 'flex';
+                document.getElementById('lockNote').textContent = 'İpucu: Fotoğrafı fare veya parmakla sürükleyip kaydırabilir, çubuktan büyütebilirsiniz.';
+                draw();
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    };
+
+    function openCheckout(isTest) {
+        state.isTest = isTest;
+        document.getElementById('modalTitle').textContent = isTest ? 'Robot Baskı Testi' : 'Teslimat Bilgileri ve PayTR Ödeme';
+        document.getElementById('btnSubmitOrder').textContent = isTest ? 'Baskı Dosyasını Şimdi Üret' : `PayTR ile ${state.price} TL Öde`;
+        document.getElementById('checkoutModal').style.display = 'flex';
+    }
+
+    function renderHighResTextLayer() {
+        const isHoriz = state.orientation === 'horizontal';
+        const hiCanvas = document.createElement('canvas');
+        hiCanvas.width = isHoriz ? 4800 : 3600;
+        hiCanvas.height = isHoriz ? 3600 : 4800;
+        const hCtx = hiCanvas.getContext('2d');
+
+        const cfg = getCfg();
+        const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
+        const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
+        const age = document.getElementById('inpAge').value.trim() || '1';
+
+        renderAllOverlays(hCtx, hiCanvas.width, hiCanvas.height, cfg, slogan, name, age);
+        return hiCanvas.toDataURL('image/png');
+    }
+
+    async function submitOrder() {
+        const textLayerBase64 = renderHighResTextLayer();
+        const payload = {
+            slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
+            name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
+            age: document.getElementById('inpAge').value.trim() || '1',
+            theme: state.theme,
+            orientation: state.orientation,
+            size: state.size,
+            price: state.price,
+            customerName: document.getElementById('custName').value || 'Test Müşteri',
+            customerPhone: document.getElementById('custPhone').value || '05000000000',
+            customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
+            customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
+            photoBase64: state.photoBase64,
+            photoTransform: state.photoTransform,
+            textLayerBase64: textLayerBase64,
+            isTestOrder: state.isTest
+        };
+
+        try {
+            const res = await fetch('/api/siparis-olustur', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (data.status === 'test_success') {
+                alert(`ROBOT BAŞARIYLA ÇALIŞTI!\n\nBaskı dosyanız üretildi:\n${data.fileName}`);
+                document.getElementById('checkoutModal').style.display = 'none';
+            } else if (data.status === 'success') {
+                document.getElementById('paytrBox').innerHTML = `<iframe src="https://www.paytr.com/odeme/guvenli/${data.token}" frameborder="0" style="width:100%; height:420px;"></iframe>`;
+            } else {
+                alert('Bilgi: ' + (data.reason || data.message));
+            }
+        } catch (e) {
+            alert('Hata: ' + e.message);
+        }
+    }
+</script>
+</body>
+</html>
