@@ -31,7 +31,7 @@
         @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
 
         .preview-area { background: #FDF2F6; border: 2px dashed var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        canvas { max-width: 100%; max-height: 550px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; touch-action: none; }
+        canvas { width: 100%; max-width: 580px; height: auto; max-height: 550px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; touch-action: none; }
         canvas.draggable { cursor: grab; }
         canvas.dragging { cursor: grabbing; }
 
@@ -107,7 +107,7 @@
 
     <div class="grid">
         <div class="preview-area">
-            <canvas id="canvas"></canvas>
+            <canvas id="canvas" width="1200" height="900"></canvas>
             <div class="photo-tools" id="photoTools">
                 <span>Fotoğraf:</span>
                 <button type="button" class="zoom-btn" onclick="stepZoom(-0.1)">−</button>
@@ -203,7 +203,6 @@
         ageDataList.appendChild(opt);
     }
 
-    // Pozitif arc (+0.20) yukarı kemer (gökkuşağı) yapar ve harf merkezini sabit tutar
     const DEFAULT_LAYOUT = {
         defaultName: 'YUSUF MAHİR',
         horizontal: {
@@ -342,7 +341,8 @@
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const bgImg = new Image();
+    let bgImg = new Image();
+    let bgLoaded = false;
 
     function getCfg() {
         if (!LAYOUTS[state.theme]) {
@@ -354,8 +354,7 @@
     function syncCalUI() {
         if (!isCalMode) return;
         const cfg = getCfg();
-        const chk = document.getElementById('chkShowRibbon');
-        chk.checked = !!cfg.drawSubRibbon;
+        document.getElementById('chkShowRibbon').checked = !!cfg.drawSubRibbon;
 
         let sizeVal = 0.05, arcVal = 0, xVal = 0.5, yVal = 0.5;
         if (calTarget === 'slogan') { sizeVal = cfg.sloganMaxH; arcVal = cfg.sloganArc; xVal = cfg.sloganX ?? 0.5; yVal = cfg.sloganY; }
@@ -545,13 +544,32 @@
     function loadTemplate() {
         const dir = state.orientation === 'horizontal' ? 'yatay' : 'dikey';
         const customSrc = templateFiles[state.theme]?.[state.orientation];
-        bgImg.onload = () => { syncCalUI(); draw(); };
-        bgImg.onerror = () => {
-            if (!bgImg.src.endsWith('.png')) {
-                bgImg.src = `sablonlar/${state.theme}-${dir}.png`;
+        const candidates = customSrc
+            ? [customSrc]
+            : [`sablonlar/${state.theme}-${dir}.jpg`, `sablonlar/${state.theme}-${dir}.png`, `sablonlar/${state.theme}-${dir}.jpeg`];
+
+        let idx = 0;
+        bgLoaded = false;
+
+        function tryNext() {
+            if (idx >= candidates.length) {
+                draw();
+                return;
             }
-        };
-        bgImg.src = customSrc || `sablonlar/${state.theme}-${dir}.jpg`;
+            const img = new Image();
+            img.onload = () => {
+                bgImg = img;
+                bgLoaded = true;
+                syncCalUI();
+                draw();
+            };
+            img.onerror = () => {
+                idx++;
+                tryNext();
+            };
+            img.src = candidates[idx];
+        }
+        tryNext();
     }
 
     function draw3DSubRibbon(targetCtx, cx, cy, w, h) {
@@ -614,7 +632,6 @@
         return Math.max(18, size);
     }
 
-    // Düzeltilmiş Kavis Motoru: Pozitif değer yukarı kemer (gökkuşağı) yapar, orta noktayı sabit tutar
     function renderArcChars(targetCtx, chars, widths, totalWidth, cx, cy, radius, arcStrength, drawFn) {
         let currentX = -totalWidth / 2;
         for (let i = 0; i < chars.length; i++) {
@@ -731,6 +748,8 @@
         canvas.width = isHoriz ? 1200 : 900;
         canvas.height = isHoriz ? 900 : 1200;
 
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         const cfg = getCfg();
         const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
         const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
@@ -740,7 +759,12 @@
         const px = canvas.width * cfg.photoX;
         const py = canvas.height * cfg.photoY;
 
-        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+        if (bgLoaded && bgImg.naturalWidth > 0) {
+            ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#FDF2F6';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
         if (state.photoImg) {
             ctx.save();
@@ -757,16 +781,16 @@
             ctx.drawImage(state.photoImg, px + shiftX - drawW / 2, py + shiftY - drawH / 2, drawW, drawH);
             ctx.restore();
 
-            if (state.theme === 'mavi-prens' || !LAYOUTS[state.theme]) {
+            if (bgLoaded && bgImg.naturalWidth > 0 && (state.theme === 'mavi-prens' || !LAYOUTS[state.theme])) {
                 const ribbonTopY = isHoriz ? canvas.height * 0.542 : canvas.height * 0.495;
                 const ribbonH = isHoriz ? canvas.height * 0.14 : canvas.height * 0.13;
                 const ribbonW = isHoriz ? canvas.width * 0.36 : canvas.width * 0.48;
                 ctx.drawImage(
                     bgImg,
-                    (bgImg.width / canvas.width) * (px - ribbonW / 2),
-                    (bgImg.height / canvas.height) * ribbonTopY,
-                    (bgImg.width / canvas.width) * ribbonW,
-                    (bgImg.height / canvas.height) * ribbonH,
+                    (bgImg.naturalWidth / canvas.width) * (px - ribbonW / 2),
+                    (bgImg.naturalHeight / canvas.height) * ribbonTopY,
+                    (bgImg.naturalWidth / canvas.width) * ribbonW,
+                    (bgImg.naturalHeight / canvas.height) * ribbonH,
                     px - ribbonW / 2,
                     ribbonTopY,
                     ribbonW,
@@ -817,6 +841,10 @@
         });
     }
 
+    // Önce yerel şablonu hemen yükle, arka planda klasördeki ekstra şablonları çek
+    bindThemeButtons();
+    loadTemplate();
+
     fetch('/api/sablonlar').then(r => r.json()).then(resData => {
         const list = resData.templates || [];
         const savedLayouts = resData.customLayouts || {};
@@ -842,9 +870,79 @@
         }
     }).catch(() => {});
 
-    bindThemeButtons();
-
     document.querySelectorAll('.orient-btn').forEach(b => {
         b.onclick = () => { document.querySelector('.orient-btn.active').classList.remove('active'); b.classList.add('active'); state.orientation = b.dataset.o; loadTemplate(); };
     });
-    document.querySelectorAll('.size-box
+    document.querySelectorAll('.size-box').forEach(b => {
+        b.onclick = () => { document.querySelector('.size-box.active').classList.remove('active'); b.classList.add('active'); state.size = b.dataset.s; state.price = b.dataset.p; document.getElementById('lblPrice').textContent = state.price + ' TL'; };
+    });
+    document.getElementById('inpSlogan').oninput = draw;
+    document.getElementById('inpName').oninput = () => { state.userTypedName = true; draw(); };
+    document.getElementById('inpAge').oninput = draw;
+    document.getElementById('inpAge').onfocus = function() { this.select(); };
+
+    document.getElementById('inpPhoto').onchange = (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            state.photoBase64 = ev.target.result;
+            const img = new Image();
+            img.onload = () => {
+                state.photoImg = img;
+                resetPhotoTransform();
+                canvas.classList.add('draggable');
+                document.getElementById('photoTools').style.display = 'flex';
+                document.getElementById('lockNote').textContent = 'İpucu: Fotoğrafı fare veya parmakla sürükleyip kaydırabilir, çubuktan büyütebilirsiniz.';
+                draw();
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    };
+
+    function openCheckout(isTest) {
+        state.isTest = isTest;
+        document.getElementById('modalTitle').textContent = isTest ? 'Robot Baskı Testi' : 'Teslimat Bilgileri ve PayTR Ödeme';
+        document.getElementById('btnSubmitOrder').textContent = isTest ? 'Baskı Dosyasını Şimdi Üret' : `PayTR ile ${state.price} TL Öde`;
+        document.getElementById('checkoutModal').style.display = 'flex';
+    }
+
+    function renderHighResTextLayer() {
+        const isHoriz = state.orientation === 'horizontal';
+        const hiCanvas = document.createElement('canvas');
+        hiCanvas.width = isHoriz ? 4800 : 3600;
+        hiCanvas.height = isHoriz ? 3600 : 4800;
+        const hCtx = hiCanvas.getContext('2d');
+
+        const cfg = getCfg();
+        const slogan = document.getElementById('inpSlogan').value.trim().toLocaleUpperCase('tr-TR');
+        const name = document.getElementById('inpName').value.trim().toLocaleUpperCase('tr-TR');
+        const age = document.getElementById('inpAge').value.trim() || '1';
+
+        renderAllOverlays(hCtx, hiCanvas.width, hiCanvas.height, cfg, slogan, name, age);
+        return hiCanvas.toDataURL('image/png');
+    }
+
+    async function submitOrder() {
+        const textLayerBase64 = renderHighResTextLayer();
+        const payload = {
+            slogan: document.getElementById('inpSlogan').value.trim() || 'İYİ Kİ DOĞDUN',
+            name: document.getElementById('inpName').value.trim() || 'İSİMSİZ',
+            age: document.getElementById('inpAge').value.trim() || '1',
+            theme: state.theme,
+            orientation: state.orientation,
+            size: state.size,
+            price: state.price,
+            customerName: document.getElementById('custName').value || 'Test Müşteri',
+            customerPhone: document.getElementById('custPhone').value || '05000000000',
+            customerEmail: document.getElementById('custEmail').value || 'test@premiumafis.com',
+            customerAddress: document.getElementById('custAddress').value || 'Test Adresi',
+            photoBase64: state.photoBase64,
+            photoTransform: state.photoTransform,
+            textLayerBase64: textLayerBase64,
+            isTestOrder: state.isTest
+        };
+
+        try {
+            const res = await fetch('/api/siparis-olustur', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const
