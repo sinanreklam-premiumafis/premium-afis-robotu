@@ -29,8 +29,8 @@ function saveOrders() {
 }
 
 const PHOTO_AREAS = {
-    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.165 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
-    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.165 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
+    'default':      { horizontal: { x: 0.50, y: 0.415, r: 0.168 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
+    'mavi-prens':   { horizontal: { x: 0.50, y: 0.415, r: 0.168 }, vertical: { x: 0.50, y: 0.365, r: 0.228 } },
     'prenses':      { horizontal: { x: 0.18, y: 0.360, r: 0.115 }, vertical: { x: 0.50, y: 0.480, r: 0.125 } },
     'safari':       { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
     'yaris':        { horizontal: { x: 0.50, y: 0.480, r: 0.165 }, vertical: { x: 0.50, y: 0.460, r: 0.215 } },
@@ -88,6 +88,7 @@ function findTemplateFile(baseDir, theme, orientationKey) {
     return null;
 }
 
+// Altın çerçeve ve kurdele bordürünü koruyarak sadece açık mavi/beyaz iç dolguyu şeffaf açan hassas filtre
 function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
     const x0 = Math.max(0, Math.floor(cx - maxR));
     const y0 = Math.max(0, Math.floor(cy - maxR));
@@ -98,9 +99,6 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
 
     const midX = Math.floor(cx - x0);
     const midY = Math.floor(cy - y0);
-    const midIdx = (midY * w + midX) * 4;
-    const refR = data[midIdx], refG = data[midIdx + 1], refB = data[midIdx + 2];
-
     const visited = new Uint8Array(w * h);
     const queue = [midY * w + midX];
     visited[midY * w + midX] = 1;
@@ -129,12 +127,13 @@ function punchFrameWindow(ctx, width, height, cx, cy, maxR) {
                 visited[n] = 1;
                 const n4 = n * 4;
                 const r = data[n4], g = data[n4 + 1], b = data[n4 + 2];
+                // Altın çerçeve sarı/turuncu olduğu için B kanalı düşüktür (r - b > 35). İç dolgu açık mavi/beyazdır (b >= r - 12 ve parlaktır).
                 const brightness = (r + g + b) / 3;
-                const diff = Math.abs(r - refR) + Math.abs(g - refG) + Math.abs(b - refB);
-                if (brightness > 165 && diff < 140) {
+                const isGoldOrDark = (r - b > 28) || brightness < 185;
+                if (!isGoldOrDark) {
                     queue.push(n);
                 } else {
-                    data[n4 + 3] = Math.min(data[n4 + 3], 110);
+                    data[n4 + 3] = Math.min(data[n4 + 3], 180);
                 }
             }
         }
@@ -280,10 +279,10 @@ async function generatePrintReadyFile(order) {
         const userPhoto = await loadImage(order.photoBase64);
         ctx.save();
         ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.arc(px, py, r * 1.03, 0, Math.PI * 2);
         ctx.clip();
         const imgRatio = userPhoto.width / userPhoto.height;
-        let baseW = r * 2, baseH = r * 2;
+        let baseW = r * 2.06, baseH = r * 2.06;
         if (imgRatio > 1) { baseW = baseH * imgRatio; } else { baseH = baseW / imgRatio; }
         const drawW = baseW * (tf.scale || 1);
         const drawH = baseH * (tf.scale || 1);
