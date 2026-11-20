@@ -167,6 +167,7 @@ async function generatePrintReadyFile(order) {
     ctx.drawImage(bgImg, 0, 0, width, height);
 
     // 2. Müşteri fotoğrafı
+   // 2. Müşteri fotoğrafı (Kurdele arkasında ve tam çerçeve içinde)
     if (order.photoBase64) {
         const pCfg = (PHOTO_AREAS[order.theme] || PHOTO_AREAS['mavi-prens'])[order.orientation];
         const userPhoto = await loadImage(order.photoBase64);
@@ -174,7 +175,13 @@ async function generatePrintReadyFile(order) {
         const px = width * pCfg.x;
         const py = height * pCfg.y;
         ctx.save();
-        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.clip();
+        ctx.beginPath();
+        ctx.arc(px, py, r * 0.965, 0, Math.PI * 2);
+        // Mavi Prens temasında fotoğrafın alt kısmını kurdele arkasında bırak
+        if (order.theme === 'mavi-prens') {
+            ctx.rect(px - r, py - r, r * 2, r * 1.62);
+        }
+        ctx.clip();
         const imgRatio = userPhoto.width / userPhoto.height;
         let drawW = r * 2, drawH = r * 2;
         if (imgRatio > 1) { drawW = drawH * imgRatio; } else { drawH = drawW / imgRatio; }
